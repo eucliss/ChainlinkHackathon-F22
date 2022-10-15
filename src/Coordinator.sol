@@ -2,8 +2,6 @@
 pragma solidity ^0.8.14;
 
 import "@chainlink/contracts/src/v0.8/interfaces/KeeperCompatibleInterface.sol";
-import "./lib/StructsAndEnums.sol";
-
 contract Coordinator is KeeperCompatibleInterface {
 
     function registerGame() public {
@@ -15,7 +13,9 @@ contract Coordinator is KeeperCompatibleInterface {
     function distributeAssets() public {}
 
 
-    function checkUpkeep()
+    function checkUpkeep(
+        bytes memory /* checkData */
+    )
         public
         pure
         override
