@@ -23,7 +23,7 @@ struct CustomerStruct {
     uint256 feesDue;
     address gameContract;
     bool eligible;
-    bool timeToBill;
+    bool setToBill;
     address[] assetContracts;
 }
 

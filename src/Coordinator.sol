@@ -4,7 +4,6 @@ pragma solidity ^0.8.7;
 import "@chainlink/contracts/src/v0.8/interfaces/KeeperCompatibleInterface.sol";
 import "./lib/StructsAndEnums.sol";
 import "@std/Test.sol";
-// import {SafeTransferLib} from "@solmate/src/utils/SafeTransferLib.sol";
 
 interface IERC20 {
     function mint(address to, uint256 amount) external returns(bool);
@@ -55,12 +54,13 @@ contract Coordinator is KeeperCompatibleInterface {
             feesDue: 0, // 0 fees due to start
             gameContract: gameContract, 
             eligible: true,
-            timeToBill: false, // (???)
+            setToBill: false, // (???)
             assetContracts: assetContractAddresses
         });
 
         uint256 ctLength = assetContractAddresses.length;
         for (uint256 i = 0; i < ctLength; i++) {
+            require(!assets[assetContractAddresses[i]].eligible, "Asset already registered.");
             // Add each contract to assets map
             assets[assetContractAddresses[i]] = AssetContract({
                 customer: invoiceAddress, // Who gets billed
@@ -93,7 +93,6 @@ contract Coordinator is KeeperCompatibleInterface {
         address[] calldata recipients
     ) public 
     {
-        console.log(gasleft());
         uint256 packLen = packages.length;
         require(packLen == recipients.length, "Packages and recipients mismatch.");
         // Loop through all the packages
@@ -101,28 +100,25 @@ contract Coordinator is KeeperCompatibleInterface {
             // Mint the package to the user
             require(assets[packages[i].token].eligible, "Contract not registered.");
             _mintPackage(packages[i], recipients[i]);
-            // (bool success) = 
-
-            // Add the gas to the transaction cost of the call
-
         }
-        console.log(gasleft());
     }
 
     function _mintPackage(PackageItem calldata package, address recipient) internal {
         uint256 gas = gasleft();
+        address assetLocation = package.token;
         // NATIVE
         // if(packages[i].itemType == ItemType.NATIVE){
         //     //
         // }
+
         // ERC20
         if(package.itemType == ItemType.ERC20){
-            bool success = IERC20(package.token).mint(recipient, package.amount);
+            bool success = IERC20(assetLocation).mint(recipient, package.amount);
             require(success, "Mint failed");
         }
         // ERC721
         if(package.itemType == ItemType.ERC721){
-            bool success = IERC721(package.token).mint(recipient, package.identifier);
+            bool success = IERC721(assetLocation).mint(recipient, package.identifier);
             require(success, "Mint failed");
         }
         // ERC1155
@@ -133,8 +129,14 @@ contract Coordinator is KeeperCompatibleInterface {
         // if(packages[i].itemType == ItemType.NONE){
         
         // }
+        CustomerStruct storage c = customers[assets[package.token].customer];
+        if(c.setToBill != true){
+            c.setToBill = true;
+            paymentsDue.push(assets[package.token].customer);
+        }
+
         gas -= gasleft();
-        customers[assets[package.token].customer].feesDue += gas;
+        customers[assets[assetLocation].customer].feesDue += gas;
     }
 
     function getCustomerContracts(address invoiceAddress)
@@ -153,12 +155,17 @@ contract Coordinator is KeeperCompatibleInterface {
         bytes memory /* checkData */
     )
         public
-        pure
+        view
         override
         returns (bool upkeepNeeded, bytes memory performData)
     {
-        upkeepNeeded = true;
-        performData = bytes("");
+
+        return paymentsDue.length > 0 ?
+            (true, abi.encode(paymentsDue)) :
+            (false, abi.encode(paymentsDue));
+
+        // If payments due has shit in it, return true and the list in perform data
+        // If not we go no billing required
 
         // Checks if upkeep needs to happen
         // In this instance upkeep is going to be charging customers wallets
@@ -167,14 +174,37 @@ contract Coordinator is KeeperCompatibleInterface {
     }
 
     function performUpkeep(
-        bytes calldata /* performData */
-    ) external pure override {
+        bytes calldata performData
+    ) external override {
         // add some verification
-        (bool upkeepNeeded, ) = checkUpkeep("");
-        require(upkeepNeeded, "Not Upkeep");
+        // (bool upkeepNeeded, ) = checkUpkeep("");
+        // require(upkeepNeeded, "Not Upkeep");
+
+        address[] memory billedCustomers = abi.decode(performData, (address[]));
+
+        for(uint256 index = 0; index < billedCustomers.length; index++) {
+            billCustomer(billedCustomers[index]);    
+        }
+        // get list of customers from the perform data
+        // bill all them or lock their account
 
         // Transfers eth from the owners payable address to here
         // This is basically forcing people to pay their bills
         // pauses maintenance window and deletes balances for addrs billed
+    }
+
+    function billCustomer(address customer) internal {
+        // May need to setup an invoice contract type
+        // Where the user registers an invoice contract
+        // Then pre-loads it with ethereum
+        // The bill customer will then attempt to bill the invoice address
+        // We can build like a clone factory for those invoiced wallets
+        // Will only have 2 functions
+        // Bill, deposit (later on we can add more for ERC20 payments, etc.)
+        // But for now just eth is good
+    }
+
+    function getEncodedRequiredBills() public view returns(bytes memory) {
+        return abi.encode(paymentsDue);
     }
 }
