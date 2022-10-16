@@ -10,7 +10,7 @@ contract GameERC721 is ERC721 {
     constructor() ERC721("GameNFT", "NFT") {}
 
     modifier validTokenId(uint256 tokenId) {
-        require(tokenId == nextTokenId);
+        require(tokenId == nextTokenId, "Token ID incorrect.");
         _;
     }
 
@@ -33,9 +33,11 @@ contract GameERC721 is ERC721 {
         public 
         virtual 
         validTokenId(tokenId)
+        returns(bool)
         {
         _mint(to, tokenId);
-
+        tokenId++;
+        return true;
     }
 
     function burn(uint256 tokenId) public virtual {
