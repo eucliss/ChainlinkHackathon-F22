@@ -2,35 +2,10 @@
 
 pragma solidity ^0.8.0;
 
-import "../Coordinator.sol";
-import "@std/Test.sol";
-import "./utils/Cheats.sol";
+import "./utils/Helpers.sol";
 
-import {GameERC20} from "../assets/GameERC20.sol";
-import {GameERC721} from "../assets/GameERC721.sol";
-import {GameERC1155} from "../assets/GameERC1155.sol";
 
-contract CoordinatorTest is Test {
-    Coordinator public coord;
-    Cheats internal constant cheats = Cheats(HEVM_ADDRESS);
-
-    address payable public invoiceAddress = payable(address(0xB0B));
-    address public defaultGame = address(0xAAA);
-    address public assetController = address(0xA11CE);
-    address public CUSTODIAL = address(0x420420);
-    address public NONCUSTODIAL = address(0x1010101);
-    GameERC20 public tokenContract;
-    GameERC721 public skinsContract;
-    GameERC1155 public consumablesContract;
-
-    address public token;
-    address public skins;
-    address public consumables;
-
-    address[] public assetContracts;
-    ItemType[] public assetItemTypes;
-    address[] recipients;
-    PackageItem[] packages;
+contract CoordinatorTest is Helpers {
 
     function setUp() public {
         tokenContract = new GameERC20();
@@ -60,11 +35,6 @@ contract CoordinatorTest is Test {
         packages.push(s);
 
         coord = new Coordinator();
-    }
-
-    function testCheckUpkeepReturnsTrue() public {
-        (bool upkeepNeeded, ) = coord.checkUpkeep("0x");
-        assertTrue(upkeepNeeded);
     }
 
     function testRegisterGameStorage() public {
@@ -131,14 +101,7 @@ contract CoordinatorTest is Test {
         assert(!eligible);
     }
 
-    // function testFuzzingExample(bytes memory variant) public {
-    //     // We expect this to fail, no matter how different the input is!
-    //     cheats.expectRevert(bytes("Time interval not met"));
-    //     counter.performUpkeep(variant);
-    // }
-
     function testMintAssets() public {
-
         coord.registerGame(
             invoiceAddress,
             defaultGame,
@@ -177,9 +140,162 @@ contract CoordinatorTest is Test {
         assertEq(custNFTBalance, 0);
         assertEq(noncustNFTBalance, 1);
         
-        (fees, , , ) = coord.customers(invoiceAddress);
-        console.log(fees);
-
-
+        bool bill;
+        (fees, , , bill) = coord.customers(invoiceAddress);
+        assert(fees > 0);
+        assert(bill);
     }
+
+    function testMintAssetsMultiple() public {
+        setUpMultiInvoiceAndRegister();
+
+        uint256 custBalance = tokenContract.balanceOf(CUSTODIAL);
+        uint256 noncustBalance = tokenContract.balanceOf(NONCUSTODIAL);
+        assertEq(custBalance, 0);
+        assertEq(noncustBalance, 0);
+
+        uint256 custNFTBalance = skinsContract.balanceOf(CUSTODIAL);
+        uint256 noncustNFTBalance = skinsContract.balanceOf(NONCUSTODIAL);
+        assertEq(custNFTBalance, 0);
+        assertEq(noncustNFTBalance, 0);
+
+        (uint256 fees, , , ) = coord.customers(invoiceAddress);
+        assertEq(fees, 0);
+        (fees, , , ) = coord.customers(invoiceAddress2);
+        assertEq(fees, 0);
+
+        
+        coord.mintAssets(
+            packages,
+            recipients
+        );
+        coord.mintAssets(
+            packages2,
+            recipients2
+        );
+
+
+        custBalance = tokenContract.balanceOf(CUSTODIAL);
+        noncustBalance = tokenContract.balanceOf(NONCUSTODIAL);
+        assertEq(custBalance, 100);
+        assertEq(noncustBalance, 0);
+
+        custNFTBalance = skinsContract.balanceOf(CUSTODIAL);
+        noncustNFTBalance = skinsContract.balanceOf(NONCUSTODIAL);
+        assertEq(custNFTBalance, 0);
+        assertEq(noncustNFTBalance, 1);
+        
+        bool bill;
+        (fees, , , bill) = coord.customers(invoiceAddress);
+        assert(fees > 0);
+        assert(bill);
+
+        (fees, , , bill) = coord.customers(invoiceAddress2);
+        assert(fees > 0);
+        assert(bill);
+    }
+
+    function testUpkeep() public {
+        coord.registerGame(
+            invoiceAddress,
+            defaultGame,
+            assetController,
+            assetContracts,
+            assetItemTypes
+        );
+        
+        coord.mintAssets(
+            packages,
+            recipients
+        );
+
+        bytes memory billsBytes = coord.getEncodedRequiredBills();
+
+        address[] memory billsRequired = abi.decode(billsBytes, (address[]));
+
+        (bool upkeepRequired, bytes memory data) = coord.checkUpkeep("");
+
+        require(upkeepRequired, "Upkeep should be required here.");
+
+        address[] memory resCustomers = abi.decode(data, (address[]));
+
+        assertEq(resCustomers.length, 1);
+        assertEq(resCustomers[0], invoiceAddress);
+    }
+
+
+    function testMultipleInvoiceUpkeep() public {
+        setUpMultiInvoiceAndRegister();
+        
+        coord.mintAssets(
+            packages,
+            recipients
+        );
+        coord.mintAssets(
+            packages2,
+            recipients2
+        );
+
+        bytes memory billsBytes = coord.getEncodedRequiredBills();
+
+        address[] memory billsRequired = abi.decode(billsBytes, (address[]));
+
+        (bool upkeepRequired, bytes memory data) = coord.checkUpkeep("");
+
+        require(upkeepRequired, "Upkeep should be required here.");
+
+        address[] memory resCustomers = abi.decode(data, (address[]));
+
+        assertEq(resCustomers.length, 2);
+        assertEq(resCustomers[0], invoiceAddress);
+        assertEq(resCustomers[1], invoiceAddress2);
+    }
+
+    function testPerformUpkeep() public {
+        vm.deal(invoiceAddress, 1 ether);
+        coord.registerGame(
+            invoiceAddress,
+            defaultGame,
+            assetController,
+            assetContracts,
+            assetItemTypes
+        );
+        
+        coord.mintAssets(
+            packages,
+            recipients
+        );
+
+        bytes memory billsBytes = coord.getEncodedRequiredBills();
+        address[] memory billsRequired = abi.decode(billsBytes, (address[]));
+        assertEq(billsRequired.length, 1);
+        assertEq(billsRequired[0], invoiceAddress);
+
+        // bool bill;
+        (uint256 fees, , , bool bill) = coord.customers(invoiceAddress);
+        assert(fees > 0);
+        assert(bill);
+        
+        // Perform the upkeep
+        coord.performUpkeep(billsBytes);
+
+        // Expect the balance of the customer to go down - fees
+        assertEq(invoiceAddress.balance, 1 ether - fees);
+        // Expect balance of contract to go up + fees
+        assertEq(address(coord).balance, fees);
+
+        // Expect ready to bill for the invoice to be false
+        (fees, , , bill) = coord.customers(invoiceAddress);
+        assertEq(fees, 0);
+        assert(bill);
+
+        // Expect the number of bills required to be 0
+        billsBytes = coord.getEncodedRequiredBills();
+        billsRequired = abi.decode(billsBytes, (address[]));
+        assertEq(billsRequired.length, 0);
+    }
+
+    // Failure to pay bills case
+
 }
+
