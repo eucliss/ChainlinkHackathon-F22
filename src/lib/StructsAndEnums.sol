@@ -31,4 +31,5 @@ struct AssetContract {
     address customer;
     address executor;
     ItemType itemType;
+    bool eligible;
 }

@@ -11,8 +11,9 @@ contract GameERC20 is ERC20 {
         _mint(msg.sender, INITIAL_SUPPLY);
     }
 
-    function mint(address to, uint256 value) public virtual {
+    function mint(address to, uint256 value) public virtual returns(bool){
         _mint(to, value);
+        return true;
     }
 
     function burn(address from, uint256 value) public virtual {

@@ -3,7 +3,7 @@
 pragma solidity ^0.8.0;
 
 import "../Coordinator.sol";
-import "forge-std/Test.sol";
+import "@std/Test.sol";
 import "./utils/Cheats.sol";
 
 import {GameERC20} from "../assets/GameERC20.sol";
@@ -17,6 +17,8 @@ contract CoordinatorTest is Test {
     address payable public invoiceAddress = payable(address(0xB0B));
     address public defaultGame = address(0xAAA);
     address public assetController = address(0xA11CE);
+    address public CUSTODIAL = address(0x420420);
+    address public NONCUSTODIAL = address(0x1010101);
     GameERC20 public tokenContract;
     GameERC721 public skinsContract;
     GameERC1155 public consumablesContract;
@@ -27,6 +29,8 @@ contract CoordinatorTest is Test {
 
     address[] public assetContracts;
     ItemType[] public assetItemTypes;
+    address[] recipients;
+    PackageItem[] packages;
 
     function setUp() public {
         tokenContract = new GameERC20();
@@ -38,8 +42,22 @@ contract CoordinatorTest is Test {
         // consumables = address(consumablesContract);
 
         assetContracts = [token, skins];
-        assetItemTypes = [ItemType.ERC20, ItemType.ERC20];
-        
+        assetItemTypes = [ItemType.ERC20, ItemType.ERC721];
+        recipients = [CUSTODIAL, NONCUSTODIAL];
+        PackageItem memory t = PackageItem({
+            itemType: ItemType.ERC20,
+            token: token,
+            identifier: 0,
+            amount: 100
+        });
+        PackageItem memory s = PackageItem({
+            itemType: ItemType.ERC721,
+            token: skins,
+            identifier: 0,
+            amount: 1
+        });
+        packages.push(t);
+        packages.push(s);
 
         coord = new Coordinator();
     }
@@ -50,7 +68,13 @@ contract CoordinatorTest is Test {
     }
 
     function testRegisterGameStorage() public {
-        coord.registerGame(invoiceAddress, defaultGame, assetController, assetContracts, assetItemTypes);
+        coord.registerGame(
+            invoiceAddress,
+            defaultGame,
+            assetController,
+            assetContracts,
+            assetItemTypes
+        );
         (, address gameContractRes, bool eligible, ) = coord.customers(
             invoiceAddress
         );
@@ -60,10 +84,25 @@ contract CoordinatorTest is Test {
             "Game contracts not set properly."
         );
         assert(eligible);
+        address p;
+        address e;
+        bool elig;
+        for(uint256 i = 0; i < assetContracts.length; i++){
+            (p, e, ,elig) = coord.assets(assetContracts[i]);
+            assertEq(p, invoiceAddress);
+            assertEq(e, assetController);
+            assert(elig);
+        }
     }
 
     function testGetCustomerContracts() public {
-        coord.registerGame(invoiceAddress, defaultGame, assetController, assetContracts, assetItemTypes);
+        coord.registerGame(
+            invoiceAddress,
+            defaultGame,
+            assetController,
+            assetContracts,
+            assetItemTypes
+        );
 
         address[] memory contracts = coord.getCustomerContracts(invoiceAddress);
         assertEq(assetContracts, contracts);
@@ -75,7 +114,13 @@ contract CoordinatorTest is Test {
     }
 
     function testGetCustomerEligibility() public {
-        coord.registerGame(invoiceAddress, defaultGame, assetController, assetContracts, assetItemTypes);
+        coord.registerGame(
+            invoiceAddress,
+            defaultGame,
+            assetController,
+            assetContracts,
+            assetItemTypes
+        );
 
         bool eligible = coord.getEligibility(invoiceAddress);
         assert(eligible);
@@ -91,4 +136,50 @@ contract CoordinatorTest is Test {
     //     cheats.expectRevert(bytes("Time interval not met"));
     //     counter.performUpkeep(variant);
     // }
+
+    function testMintAssets() public {
+
+        coord.registerGame(
+            invoiceAddress,
+            defaultGame,
+            assetController,
+            assetContracts,
+            assetItemTypes
+        );
+
+        uint256 custBalance = tokenContract.balanceOf(CUSTODIAL);
+        uint256 noncustBalance = tokenContract.balanceOf(NONCUSTODIAL);
+        assertEq(custBalance, 0);
+        assertEq(noncustBalance, 0);
+
+        uint256 custNFTBalance = skinsContract.balanceOf(CUSTODIAL);
+        uint256 noncustNFTBalance = skinsContract.balanceOf(NONCUSTODIAL);
+        assertEq(custNFTBalance, 0);
+        assertEq(noncustNFTBalance, 0);
+
+        (uint256 fees, , , ) = coord.customers(invoiceAddress);
+        assertEq(fees, 0);
+
+        
+        coord.mintAssets(
+            packages,
+            recipients
+        );
+
+
+        custBalance = tokenContract.balanceOf(CUSTODIAL);
+        noncustBalance = tokenContract.balanceOf(NONCUSTODIAL);
+        assertEq(custBalance, 100);
+        assertEq(noncustBalance, 0);
+
+        custNFTBalance = skinsContract.balanceOf(CUSTODIAL);
+        noncustNFTBalance = skinsContract.balanceOf(NONCUSTODIAL);
+        assertEq(custNFTBalance, 0);
+        assertEq(noncustNFTBalance, 1);
+        
+        (fees, , , ) = coord.customers(invoiceAddress);
+        console.log(fees);
+
+
+    }
 }
