@@ -1,7 +1,7 @@
 
 pragma solidity ^0.8.14;
 
-import "@openzeppelin/proxy/utils/Initializable.sol";
+import "@oz/proxy/utils/Initializable.sol";
 
 interface ICustomer {
 
