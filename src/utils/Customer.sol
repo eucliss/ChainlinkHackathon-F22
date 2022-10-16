@@ -1,7 +1,7 @@
 
 pragma solidity ^0.8.14;
 
-import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import "@openzeppelin/proxy/utils/Initializable.sol";
 
 interface ICustomer {
 
@@ -21,15 +21,15 @@ contract Customer is ICustomer, Initializable {
     uint256 balance = 0;
 
     function initialize(
-        address _owner;
-        address _coordinator;
+        address _owner,
+        address _coordinator
     ) initializer public {
         owner = _owner;
         coordinator = _coordinator;
     }
 
     receive() {
-        require(msg.value > 0, "NO ETH SENT")
+        require(msg.value > 0, "NO ETH SENT");
         deposit();
     }
 
@@ -45,7 +45,7 @@ contract Customer is ICustomer, Initializable {
         if(amount > balance) {
             return false;
         } else {
-            (success, )address(coordinator).call{value: amount}("");
+            (success, ) = address(coordinator).call{value: amount}("");
             if(success) {
                 balance -= amount;
             }
