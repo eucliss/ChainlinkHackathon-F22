@@ -5,9 +5,13 @@ import "@oz/proxy/utils/Initializable.sol";
 
 interface ICustomer {
 
+    function initialize(address owner) external;
+
     function deposit() external payable;
 
-    function bill() external;
+    function bill(uint256 amount) external returns(bool success);
+
+    function getOwner() external returns(address owner);
 
 }
 
@@ -18,23 +22,21 @@ contract Customer is ICustomer, Initializable {
 
     address public immutable coordinator;
     address public owner;
-    uint256 balance = 0;
+    uint256 public balance = 0;
 
-    function initialize(
-        address _owner,
+    constructor(
         address _coordinator
-    ) initializer public {
-        owner = _owner;
+    ) {
         coordinator = _coordinator;
     }
 
-    receive() {
-        require(msg.value > 0, "NO ETH SENT");
-        deposit();
+    function initialize(
+        address _owner
+    ) initializer override public {
+        owner = _owner;
     }
 
-
-    function deposit() external override payable {
+    function deposit() public override payable {
         // Maybe want to expand to other ERCs?
         balance += msg.value;
         emit DepositSuccessful(msg.sender, msg.value);
@@ -52,7 +54,14 @@ contract Customer is ICustomer, Initializable {
         }
     }
 
+    function getOwner() external view returns(address) {
+        return owner;
+    }
 
+    receive() external payable {
+        require(msg.value > 0, "NO ETH SENT");
+        deposit();
+    }
 
 }
 

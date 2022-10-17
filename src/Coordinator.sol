@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.14;
 
 import "@chainlink/contracts/src/v0.8/interfaces/KeeperCompatibleInterface.sol";
 import "./lib/StructsAndEnums.sol";
 import "@std/Test.sol";
+import { ICustomer, Customer } from "./utils/Customer.sol";
+import {Clones} from "@oz/proxy/Clones.sol";
 
 interface IERC20 {
     function mint(address to, uint256 amount) external returns(bool);
@@ -20,59 +22,113 @@ contract Coordinator is KeeperCompatibleInterface {
     // nextBillTime: (block.timestamp + 1 weeks),
 
     event GameRegistered(address invoiceAddress, uint256 contracts);
+    event CustomerRegistered(address customer, address controller);
+    event AddedAssetsToCustomer(
+        address customer, 
+        address[] additionalContracts, 
+        address[] updatedContracts
+    );
+
+    address public immutable customerLogic;
+    uint256 public initialDeposit = 0.1 ether;
 
     address[] public paymentsDue;
 
     mapping(address => CustomerStruct) public customers;
     mapping(address => AssetContract) public assets;
 
-    function registerGame(
-        address payable invoiceAddress, // Address to bill for contract execution
-        address gameContract, // Overarching game contract if there is one (not sure why)
-        address assetController, // Address of who controlls the asset, call gate (??)
-        address[] calldata assetContractAddresses, // Addresses of your Asset contracts
-        ItemType[] calldata assetContractItemTypes // ItemTypes of your Asset contracts
-    ) public {
-        // Registers a customer (game)
-        // Customers add their payable address for billing
-        // Game address if they have an onchain game
-        // Adds their game asset contracts, we'll enforce ownership
-        // eventually through ZK proofs onchain
+    modifier equalAssetsAndTypes(address[] calldata assetContracts, ItemType[] calldata itemTypes) {
         require(
-            customers[invoiceAddress].eligible == false,
-            "Invoice Address already registered."
-        );
-
-        require(
-            assetContractAddresses.length == assetContractItemTypes.length,
+            assetContracts.length == itemTypes.length,
             "Missatch in asset addresses and itemtypes"
         );
+        _;
+    }
 
-        //ToDo: Add details to storage mapping
-        // Set the customers mapping with the invoice struct
-        customers[invoiceAddress] = CustomerStruct({
-            feesDue: 0, // 0 fees due to start
-            gameContract: gameContract, 
-            eligible: true,
-            setToBill: false, // (???)
-            assetContracts: assetContractAddresses
-        });
+    constructor() {
+        customerLogic = address(new Customer(address(this)));
+    }
 
-        uint256 ctLength = assetContractAddresses.length;
-        for (uint256 i = 0; i < ctLength; i++) {
-            require(!assets[assetContractAddresses[i]].eligible, "Asset already registered.");
-            // Add each contract to assets map
+    receive() external payable {}
+
+    fallback() external payable {}
+
+    function registerCustomer(
+        address assetController
+    ) public payable returns(address customer) {
+        require(msg.value >= initialDeposit, "Incorrect msg.value, send >0.1 ether");
+        
+        customer = Clones.clone(customerLogic);
+        ICustomer(customer).initialize(assetController);
+
+        // Send some eth to the customer to initialize it
+        customer.call{value: msg.value}("");
+        // Probably require like .1 eth to build a customer
+        // Might take some profits here too like .5
+
+
+        // Finish adding the customer object to the registry
+        customers[customer].eligible = true;
+
+        // Then we're prolly gunna have to have a register Asset call
+        // Wondering if we can group all this into reg game
+        // Register game could be the over arching one
+        // Give people the ability to register as a customer themselves
+        // give them the ability to add more assets to their profile
+
+        // Or just blanket register hella games in one go
+        // Spawn me an invoice address and take this shit with u
+        // This is the best approach imo
+        // That function will just use the other 2 as dependencies basic
+        emit CustomerRegistered(customer, assetController);
+    }
+
+    // TODO: Security concerns, require owner from Customer contract adding to invoice addr;
+    //  require assets not already eligible
+    //  require customer invoice isnt locked
+    function registerAssets(
+        address assetController,
+        address customerInvoice,
+        address[] calldata assetContractAddresses, // Addresses of your Asset contracts
+        ItemType[] calldata assetContractItemTypes // ItemTypes of your Asset contracts
+    ) 
+        public 
+        payable 
+        equalAssetsAndTypes(assetContractAddresses, assetContractItemTypes) 
+    {
+        // Check validity
+        require(ICustomer(customerInvoice).getOwner() == msg.sender, "Not Invoice Owner");
+        require(customers[customerInvoice].eligible, "Customer Invoice is not eligible.");
+
+
+        uint256 len = assetContractAddresses.length;
+        for(uint8 i = 0; i < len; i++) {
+            // Add asset objects
+            require(!assets[assetContractAddresses[i]].eligible, "Asset is already registered.");
+
             assets[assetContractAddresses[i]] = AssetContract({
-                customer: invoiceAddress, // Who gets billed
+                customer: customerInvoice, // Who gets billed
                 executor: assetController, // Who controlls
                 itemType: assetContractItemTypes[i], // What asset type
                 eligible: true
             });
+            customers[customerInvoice].assetContracts.push(assetContractAddresses[i]);
         }
 
-        emit GameRegistered(invoiceAddress, ctLength);
+        emit AddedAssetsToCustomer(
+            customerInvoice, 
+            assetContractAddresses, 
+            customers[customerInvoice].assetContracts
+        );
+    }
 
-        // Need to test all this shit
+    function register(
+        address assetController,
+        address[] calldata assetContractAddresses, // Addresses of your Asset contracts
+        ItemType[] calldata assetContractItemTypes // ItemTypes of your Asset contracts
+    ) external payable returns(address customer) {
+        customer = registerCustomer(assetController);
+        registerAssets(assetController, customer, assetContractAddresses, assetContractItemTypes);
     }
 
 
@@ -137,6 +193,14 @@ contract Coordinator is KeeperCompatibleInterface {
 
         gas -= gasleft();
         customers[assets[assetLocation].customer].feesDue += gas;
+    }
+
+    function getCustomerContractsEncoded(address invoiceAddress)
+        public
+        view
+        returns (bytes memory)
+    {
+        return abi.encode(customers[invoiceAddress].assetContracts);
     }
 
     function getCustomerContracts(address invoiceAddress)
@@ -208,3 +272,53 @@ contract Coordinator is KeeperCompatibleInterface {
         return abi.encode(paymentsDue);
     }
 }
+
+
+    // function registerGame(
+    //     address payable invoiceAddress, // Address to bill for contract execution
+    //     address gameContract, // Overarching game contract if there is one (not sure why)
+    //     address assetController, // Address of who controlls the asset, call gate (??)
+    //     address[] calldata assetContractAddresses, // Addresses of your Asset contracts
+    //     ItemType[] calldata assetContractItemTypes // ItemTypes of your Asset contracts
+    // ) public {
+    //     // Registers a customer (game)
+    //     // Customers add their payable address for billing
+    //     // Game address if they have an onchain game
+    //     // Adds their game asset contracts, we'll enforce ownership
+    //     // eventually through ZK proofs onchain
+    //     require(
+    //         customers[invoiceAddress].eligible == false,
+    //         "Invoice Address already registered."
+    //     );
+
+    //     require(
+    //         assetContractAddresses.length == assetContractItemTypes.length,
+    //         "Mismatch in asset addresses and itemtypes"
+    //     );
+
+    //     //ToDo: Add details to storage mapping
+    //     // Set the customers mapping with the invoice struct
+    //     customers[invoiceAddress] = CustomerStruct({
+    //         feesDue: 0, // 0 fees due to start
+    //         gameContract: gameContract, 
+    //         eligible: true,
+    //         setToBill: false, // (???)
+    //         assetContracts: assetContractAddresses
+    //     });
+
+    //     uint256 ctLength = assetContractAddresses.length;
+    //     for (uint256 i = 0; i < ctLength; i++) {
+    //         require(!assets[assetContractAddresses[i]].eligible, "Asset already registered.");
+    //         // Add each contract to assets map
+    //         assets[assetContractAddresses[i]] = AssetContract({
+    //             customer: invoiceAddress, // Who gets billed
+    //             executor: assetController, // Who controlls
+    //             itemType: assetContractItemTypes[i], // What asset type
+    //             eligible: true
+    //         });
+    //     }
+
+    //     emit GameRegistered(invoiceAddress, ctLength);
+
+    //     // Need to test all this shit
+    // }

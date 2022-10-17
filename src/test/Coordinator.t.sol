@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.14;
 
 import "./utils/Helpers.sol";
 
@@ -35,46 +35,98 @@ contract CoordinatorTest is Helpers {
         packages.push(s);
 
         coord = new Coordinator();
+
+        vm.deal(bob, initEth + 0.1 ether);
+        vm.prank(bob);
+        invoiceAddress = payable(coord.register{value: 0.1 ether}(
+            bob,
+            assetContracts,
+            assetItemTypes
+        ));
     }
 
-    function testRegisterGameStorage() public {
-        coord.registerGame(
-            invoiceAddress,
-            defaultGame,
-            assetController,
+    function testConstructor() public {
+        coord = new Coordinator();
+        assert(coord.customerLogic() != address(0));
+    }
+
+    function testRegisterCustomer() public {
+        coord = new Coordinator();
+        vm.prank(bob);
+        address customer = coord.registerCustomer{value: 0.1 ether}(bob);
+        assert(customer != address(0));
+
+        assertEq(bob.balance, initEth - 0.1 ether);
+        assertEq(customer.balance, 0.1 ether);
+
+        (uint256 fees, , bool eligible, ) = coord.customers(
+            customer
+        );
+
+        assertEq(fees, 0);
+        assertTrue(eligible);
+
+    }
+
+    function testRegisterAssets() public {
+        // Takes a list of assets and list of item types
+        // adds the assets to the asset registry
+        // adds the items to the customers index
+        coord = new Coordinator();
+        vm.startPrank(bob);
+        address customer = coord.registerCustomer{value: 0.1 ether}(bob);
+        coord.registerAssets(
+            bob,
+            customer,
             assetContracts,
             assetItemTypes
         );
-        (, address gameContractRes, bool eligible, ) = coord.customers(
+
+        // Assert assets are loaded into the customer object
+        address[] memory contracts = coord.getCustomerContracts(bob);   
+        assertEq(assetContracts, assetContracts);
+
+        address resCustomer;
+        address resExecutor;
+        ItemType resType;
+        bool resEligible;
+
+        // Test for assets indexed in the asset contracts
+        for(uint256 i = 0; i < assetContracts.length; i++){
+            (
+                resCustomer,
+                resExecutor,
+                resType,
+                resEligible
+            ) = coord.assets(assetContracts[i]);
+
+            assertEq(resCustomer, customer);
+            assertEq(resExecutor, bob);
+            require(resType == assetItemTypes[i]);
+            assertTrue(resEligible);
+        }
+
+    }
+
+    function testRegisterGameStorage() public {
+        (, , bool eligible, ) = coord.customers(
             invoiceAddress
         );
-        assertEq(
-            gameContractRes,
-            defaultGame,
-            "Game contracts not set properly."
-        );
-        assert(eligible);
+
+        assertTrue(eligible, "Not eligible");
         address p;
         address e;
         bool elig;
         for(uint256 i = 0; i < assetContracts.length; i++){
             (p, e, ,elig) = coord.assets(assetContracts[i]);
-            assertEq(p, invoiceAddress);
-            assertEq(e, assetController);
-            assert(elig);
+            assertEq(p, invoiceAddress, "Invoice Addresses are not equal");
+            assertEq(e, bob, "Asset controllers are not equal");
+            assertTrue(elig, "Asset contract not set to eligible");
         }
     }
 
     function testGetCustomerContracts() public {
-        coord.registerGame(
-            invoiceAddress,
-            defaultGame,
-            assetController,
-            assetContracts,
-            assetItemTypes
-        );
-
-        address[] memory contracts = coord.getCustomerContracts(invoiceAddress);
+        address[] memory contracts = coord.getCustomerContracts(invoiceAddress);   
         assertEq(assetContracts, contracts);
     }
 
@@ -84,14 +136,6 @@ contract CoordinatorTest is Helpers {
     }
 
     function testGetCustomerEligibility() public {
-        coord.registerGame(
-            invoiceAddress,
-            defaultGame,
-            assetController,
-            assetContracts,
-            assetItemTypes
-        );
-
         bool eligible = coord.getEligibility(invoiceAddress);
         assert(eligible);
     }
@@ -102,14 +146,6 @@ contract CoordinatorTest is Helpers {
     }
 
     function testMintAssets() public {
-        coord.registerGame(
-            invoiceAddress,
-            defaultGame,
-            assetController,
-            assetContracts,
-            assetItemTypes
-        );
-
         uint256 custBalance = tokenContract.balanceOf(CUSTODIAL);
         uint256 noncustBalance = tokenContract.balanceOf(NONCUSTODIAL);
         assertEq(custBalance, 0);
@@ -196,14 +232,6 @@ contract CoordinatorTest is Helpers {
     }
 
     function testUpkeep() public {
-        coord.registerGame(
-            invoiceAddress,
-            defaultGame,
-            assetController,
-            assetContracts,
-            assetItemTypes
-        );
-        
         coord.mintAssets(
             packages,
             recipients
@@ -253,13 +281,6 @@ contract CoordinatorTest is Helpers {
 
     function testPerformUpkeep() public {
         vm.deal(invoiceAddress, 1 ether);
-        coord.registerGame(
-            invoiceAddress,
-            defaultGame,
-            assetController,
-            assetContracts,
-            assetItemTypes
-        );
         
         coord.mintAssets(
             packages,
