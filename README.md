@@ -1,14 +1,42 @@
-*Note: This repo has been recently updated for Goerli*
+# Custodial Game Assets
 
-# Foundry Starter Kit
+## By Euclis
 
-<br/>
-<p align="center">
-<a href="https://chain.link" target="_blank">
-<img src="./img/chainlink-foundry.png" width="225" alt="Chainlink Foundry logo">
-</a>
-</p>
-<br/>
+## Basic flow for a customer
+
+```
+Basically it comes down to three groups:
+
+1. I only want to register as a customer, add assets later.
+
+2. I am a customer and want to add some assets.
+
+3. I have assets but no invoice contract.
+```
+
+#### Only Register
+
+For this path, customers register by calling the function `registerCustomer` with the address they want to control the invoice contract. The customer will then recieve their invoice address as a response. The customer must send 0.1 ether along with this function to instantiate their invoice contract.
+
+This customer can add assets later on for just gas costs.
+
+#### Already a customer, add assets.
+
+For this path, the customer must already have their invoice contract established and be executing on the invoice contracts owner - this was set when they instantiated their account.
+
+The customer then gathers all his asset contracts and their types (erc20, 721, ...) and passes them along to `registerAssets` along with the controller of the assests and their invoice address. 
+
+#### I have assets but no account.
+
+For this path, the customer can just call the function `register` with their asset controller and assets similar to above. but without the invoice address. This function will create a cloned invoice contract for them and return the address after execution.
+
+## What happens once I'm done loading and registering?
+
+Now we can distribute assets to your users. You will already have given this contract access to mint and distribute your assets in the game, so now in the SDK we can automatically distribute these assets using our access to this contract. I think my logic is a little screwed up here at the moment, but all the pieces are pretty much set.
+
+Customers can mint their assets directly to users using the mint functionality. Additionally, we're using chainlink automation to automatically bill the customers when their balance exceeds a certain threshold.
+
+One thing I need to figure out is how to take care of all the minting and get this contract owner permissions to mint on all their contracts, thats TBD. Also if a customer wants to distribute Eth then we'll have to transfer Eth from their invoiceAddress.
 
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/smartcontractkit/foundry-starter-kit)
 

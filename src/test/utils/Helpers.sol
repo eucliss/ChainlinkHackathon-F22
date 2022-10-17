@@ -14,7 +14,8 @@ contract Helpers is Test {
     Coordinator public coord;
     Cheats internal constant cheats = Cheats(HEVM_ADDRESS);
 
-    address payable public invoiceAddress = payable(address(0xB0B));
+    address payable public bob = payable(address(0xB0B));
+    address payable public invoiceAddress = payable(address(0xB1B));
     address payable public invoiceAddress2 = payable(address(0xB0B1111));
     address public defaultGame = address(0xAAA);
     address public assetController = address(0xA11CE);
@@ -36,6 +37,9 @@ contract Helpers is Test {
     address[] recipients2;
     PackageItem[] packages;
     PackageItem[] packages2;
+
+    uint256 public immutable initEth = 10 ether;
+
 
     function setUpMultiInvoiceAndRegister() public {
 
@@ -69,34 +73,31 @@ contract Helpers is Test {
         packages2.push(s);
 
         coord = new Coordinator();
-
-        coord.registerGame(
-            invoiceAddress,
-            defaultGame,
-            assetController,
+        
+        vm.deal(bob, 0.1 ether);
+        vm.deal(assetController, 0.1 ether);
+        
+        vm.prank(bob);
+        invoiceAddress = payable(coord.register{value: 0.1 ether}(
+            bob,
             assetContracts,
             assetItemTypes
-        );
+        ));
+
 
         assetContracts2 = [skins];
         assetItemTypes2 = [ItemType.ERC721];
         recipients2 = [NONCUSTODIAL];
 
-        coord.registerGame(
-            invoiceAddress2,
-            defaultGame,
+        vm.prank(assetController);
+        invoiceAddress2 = payable(coord.register{value: 0.1 ether}(
             assetController,
             assetContracts2,
             assetItemTypes2
-        );
+        ));
 
         (, address gameContractRes, bool eligible, ) = coord.customers(
             invoiceAddress
-        );
-        assertEq(
-            gameContractRes,
-            defaultGame,
-            "Game contracts not set properly."
         );
         assert(eligible);
 
