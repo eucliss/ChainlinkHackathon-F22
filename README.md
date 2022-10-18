@@ -1,6 +1,6 @@
 # Custodial Game Assets
 
-## By Euclis
+#### By Eucliss
 
 ## Basic flow for a customer
 
@@ -14,19 +14,19 @@ Basically it comes down to three groups:
 3. I have assets but no invoice contract.
 ```
 
-#### Only Register
+### Only Register
 
 For this path, customers register by calling the function `registerCustomer` with the address they want to control the invoice contract. The customer will then recieve their invoice address as a response. The customer must send 0.1 ether along with this function to instantiate their invoice contract.
 
 This customer can add assets later on for just gas costs.
 
-#### Already a customer, add assets.
+### Already a customer, add assets.
 
 For this path, the customer must already have their invoice contract established and be executing on the invoice contracts owner - this was set when they instantiated their account.
 
 The customer then gathers all his asset contracts and their types (erc20, 721, ...) and passes them along to `registerAssets` along with the controller of the assests and their invoice address. 
 
-#### I have assets but no account.
+### I have assets but no account.
 
 For this path, the customer can just call the function `register` with their asset controller and assets similar to above. but without the invoice address. This function will create a cloned invoice contract for them and return the address after execution.
 

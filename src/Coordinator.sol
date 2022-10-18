@@ -53,6 +53,18 @@ contract Coordinator is KeeperCompatibleInterface {
 
     fallback() external payable {}
 
+    // Note: For clone reasoning
+    // May need to setup an invoice contract type
+    // Where the user registers an invoice contract
+    // Then pre-loads it with ethereum
+    // The bill customer will then attempt to bill the invoice address
+    // We can build like a clone factory for those invoiced wallets
+    // Will only have 2 functions
+    // Bill, deposit (later on we can add more for ERC20 payments, etc.)
+    // But for now just eth is good
+
+    // Register a customer
+    // This creates a cloned customerLogic which will become their billing address
     function registerCustomer(
         address assetController
     ) public payable returns(address customer) {
@@ -63,29 +75,16 @@ contract Coordinator is KeeperCompatibleInterface {
 
         // Send some eth to the customer to initialize it
         customer.call{value: msg.value}("");
-        // Probably require like .1 eth to build a customer
-        // Might take some profits here too like .5
-
 
         // Finish adding the customer object to the registry
         customers[customer].eligible = true;
-
-        // Then we're prolly gunna have to have a register Asset call
-        // Wondering if we can group all this into reg game
-        // Register game could be the over arching one
-        // Give people the ability to register as a customer themselves
-        // give them the ability to add more assets to their profile
-
-        // Or just blanket register hella games in one go
-        // Spawn me an invoice address and take this shit with u
-        // This is the best approach imo
-        // That function will just use the other 2 as dependencies basic
         emit CustomerRegistered(customer, assetController);
     }
 
     // TODO: Security concerns, require owner from Customer contract adding to invoice addr;
     //  require assets not already eligible
     //  require customer invoice isnt locked
+    // Register an array of assets to your customer address
     function registerAssets(
         address assetController,
         address customerInvoice,
@@ -122,7 +121,8 @@ contract Coordinator is KeeperCompatibleInterface {
         );
     }
 
-    function register(
+    // Regiser and 
+    function registerWithAssets(
         address assetController,
         address[] calldata assetContractAddresses, // Addresses of your Asset contracts
         ItemType[] calldata assetContractItemTypes // ItemTypes of your Asset contracts
@@ -130,7 +130,6 @@ contract Coordinator is KeeperCompatibleInterface {
         customer = registerCustomer(assetController);
         registerAssets(assetController, customer, assetContractAddresses, assetContractItemTypes);
     }
-
 
     // Pretty much wondering what the best way to do this is
     // I think the SDK needs to consider 2 cases:
@@ -143,7 +142,7 @@ contract Coordinator is KeeperCompatibleInterface {
         address[] calldata recipients
     ) public {}
 
-
+    // Mint assets 
     function mintAssets(
         PackageItem[] calldata packages,
         address[] calldata recipients
@@ -155,10 +154,12 @@ contract Coordinator is KeeperCompatibleInterface {
         for(uint256 i = 0; i<packLen; i++) {
             // Mint the package to the user
             require(assets[packages[i].token].eligible, "Contract not registered.");
+            require(assets[packages[i].token].executor == msg.sender, "Not the asset executor.");
             _mintPackage(packages[i], recipients[i]);
         }
     }
 
+    // Mint a singular package to a singular address
     function _mintPackage(PackageItem calldata package, address recipient) internal {
         uint256 gas = gasleft();
         address assetLocation = package.token;
@@ -247,8 +248,24 @@ contract Coordinator is KeeperCompatibleInterface {
         address[] memory billedCustomers = abi.decode(performData, (address[]));
 
         for(uint256 index = 0; index < billedCustomers.length; index++) {
-            billCustomer(billedCustomers[index]);    
+            _billCustomer(billedCustomers[index]);    
         }
+        
+        // -----------------
+        // Some issue here
+        // So if a customer doesnt pay the bills
+        // Then we still delete them from the payments due
+        // Maybe we can return true of false,
+        // If false we can push the address to a memory array
+        // Come back and set payments due to the leftovers
+        // If they're too high on value then lock em
+        
+        delete paymentsDue;
+
+
+
+
+
         // get list of customers from the perform data
         // bill all them or lock their account
 
@@ -257,15 +274,17 @@ contract Coordinator is KeeperCompatibleInterface {
         // pauses maintenance window and deletes balances for addrs billed
     }
 
-    function billCustomer(address customer) internal {
-        // May need to setup an invoice contract type
-        // Where the user registers an invoice contract
-        // Then pre-loads it with ethereum
-        // The bill customer will then attempt to bill the invoice address
-        // We can build like a clone factory for those invoiced wallets
-        // Will only have 2 functions
-        // Bill, deposit (later on we can add more for ERC20 payments, etc.)
-        // But for now just eth is good
+    function _billCustomer(address customer) internal {
+        bool success = ICustomer(customer).bill(customers[customer].feesDue);
+        if(success) {
+            customers[customer].feesDue = 0;
+            customers[customer].setToBill = false;
+        } else {
+            // This needs some work
+            if(customers[customer].feesDue > 0) {
+                customers[customer].eligible = false;
+            }
+        }
     }
 
     function getEncodedRequiredBills() public view returns(bytes memory) {
@@ -313,7 +332,7 @@ contract Coordinator is KeeperCompatibleInterface {
     //         assets[assetContractAddresses[i]] = AssetContract({
     //             customer: invoiceAddress, // Who gets billed
     //             executor: assetController, // Who controlls
-    //             itemType: assetContractItemTypes[i], // What asset type
+    //             itemType: assetCexontractItemTypes[i], // What asset type
     //             eligible: true
     //         });
     //     }
