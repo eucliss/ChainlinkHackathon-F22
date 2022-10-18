@@ -5,6 +5,7 @@ pragma solidity ^0.8.0;
 import "../../Coordinator.sol";
 import "@std/Test.sol";
 import "../utils/Cheats.sol";
+import "../mocks/ExposedCoordinator.sol";
 
 import {GameERC20} from "../../assets/GameERC20.sol";
 import {GameERC721} from "../../assets/GameERC721.sol";
@@ -12,6 +13,7 @@ import {GameERC1155} from "../../assets/GameERC1155.sol";
 
 contract Helpers is Test {
     Coordinator public coord;
+    ExposedCoordinator public exCoord;
     Cheats internal constant cheats = Cheats(HEVM_ADDRESS);
 
     address payable public bob = payable(address(0xB0B));
@@ -78,7 +80,7 @@ contract Helpers is Test {
         vm.deal(assetController, 0.1 ether);
         
         vm.prank(bob);
-        invoiceAddress = payable(coord.register{value: 0.1 ether}(
+        invoiceAddress = payable(coord.registerWithAssets{value: 0.1 ether}(
             bob,
             assetContracts,
             assetItemTypes
@@ -90,7 +92,7 @@ contract Helpers is Test {
         recipients2 = [NONCUSTODIAL];
 
         vm.prank(assetController);
-        invoiceAddress2 = payable(coord.register{value: 0.1 ether}(
+        invoiceAddress2 = payable(coord.registerWithAssets{value: 0.1 ether}(
             assetController,
             assetContracts2,
             assetItemTypes2
@@ -106,6 +108,45 @@ contract Helpers is Test {
         );
         assert(eligible);
 
+    }
+
+    function setUpExposed() public {
+        tokenContract = new GameERC20();
+        skinsContract = new GameERC721();
+        // consumablesContract = new GameERC1155();
+
+        token = address(tokenContract);
+        skins = address(skinsContract);
+        // consumables = address(consumablesContract);
+
+        assetContracts = [token, skins];
+        assetItemTypes = [ItemType.ERC20, ItemType.ERC721];
+        recipients = [CUSTODIAL, NONCUSTODIAL];
+        PackageItem memory t = PackageItem({
+            itemType: ItemType.ERC20,
+            token: token,
+            identifier: 0,
+            amount: 100
+        });
+        PackageItem memory s = PackageItem({
+            itemType: ItemType.ERC721,
+            token: skins,
+            identifier: 0,
+            amount: 1
+        });
+        delete packages;
+        packages.push(t);
+        packages.push(s);
+
+        exCoord = new ExposedCoordinator();
+
+        vm.deal(bob, initEth + 0.1 ether);
+        vm.prank(bob);
+        invoiceAddress = payable(exCoord.registerWithAssets{value: 0.1 ether}(
+            bob,
+            assetContracts,
+            assetItemTypes
+        ));
     }
 }
 

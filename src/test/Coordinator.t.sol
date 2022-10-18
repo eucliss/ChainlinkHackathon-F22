@@ -3,8 +3,6 @@
 pragma solidity ^0.8.14;
 
 import "./utils/Helpers.sol";
-
-
 contract CoordinatorTest is Helpers {
 
     function setUp() public {
@@ -38,7 +36,7 @@ contract CoordinatorTest is Helpers {
 
         vm.deal(bob, initEth + 0.1 ether);
         vm.prank(bob);
-        invoiceAddress = payable(coord.register{value: 0.1 ether}(
+        invoiceAddress = payable(coord.registerWithAssets{value: 0.1 ether}(
             bob,
             assetContracts,
             assetItemTypes
@@ -159,7 +157,7 @@ contract CoordinatorTest is Helpers {
         (uint256 fees, , , ) = coord.customers(invoiceAddress);
         assertEq(fees, 0);
 
-        
+        vm.prank(bob);
         coord.mintAssets(
             packages,
             recipients
@@ -200,11 +198,12 @@ contract CoordinatorTest is Helpers {
         (fees, , , ) = coord.customers(invoiceAddress2);
         assertEq(fees, 0);
 
-        
+        vm.prank(bob);
         coord.mintAssets(
             packages,
             recipients
         );
+        vm.prank(assetController);
         coord.mintAssets(
             packages2,
             recipients2
@@ -232,6 +231,7 @@ contract CoordinatorTest is Helpers {
     }
 
     function testUpkeep() public {
+        vm.prank(bob);
         coord.mintAssets(
             packages,
             recipients
@@ -255,10 +255,12 @@ contract CoordinatorTest is Helpers {
     function testMultipleInvoiceUpkeep() public {
         setUpMultiInvoiceAndRegister();
         
+        vm.prank(bob);
         coord.mintAssets(
             packages,
             recipients
         );
+        vm.prank(assetController);
         coord.mintAssets(
             packages2,
             recipients2
@@ -282,6 +284,7 @@ contract CoordinatorTest is Helpers {
     function testPerformUpkeep() public {
         vm.deal(invoiceAddress, 1 ether);
         
+        vm.prank(bob);
         coord.mintAssets(
             packages,
             recipients
@@ -308,7 +311,7 @@ contract CoordinatorTest is Helpers {
         // Expect ready to bill for the invoice to be false
         (fees, , , bill) = coord.customers(invoiceAddress);
         assertEq(fees, 0);
-        assert(bill);
+        assert(!bill);
 
         // Expect the number of bills required to be 0
         billsBytes = coord.getEncodedRequiredBills();
@@ -318,5 +321,25 @@ contract CoordinatorTest is Helpers {
 
     // Failure to pay bills case
 
+    function testBill() public {
+        setUpExposed();
+        vm.deal(invoiceAddress, 1 ether);
+        vm.prank(bob);
+        exCoord.mintAssets(
+            packages,
+            recipients
+        );
+
+        (uint256 fees, , , bool bill) = exCoord.customers(invoiceAddress);
+        assert(fees > 0);
+        assert(bill);
+
+        exCoord.bill(invoiceAddress);
+        assertEq(address(exCoord).balance, fees);
+
+        (fees, , , bill) = exCoord.customers(invoiceAddress);
+        assert(fees == 0);
+        assert(!bill);
+    }
 }
 
