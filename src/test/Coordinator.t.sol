@@ -281,6 +281,55 @@ contract CoordinatorTest is Helpers {
         assertEq(resCustomers[1], invoiceAddress2);
     }
 
+    function testPerformUpkeepLag() public {
+        setUpMultiInvoiceAndRegister();
+        
+        vm.prank(bob);
+        coord.mintAssets(
+            packages,
+            recipients
+        );
+
+        (bool upkeepRequired, bytes memory data) = coord.checkUpkeep("");
+
+        vm.prank(assetController);
+        coord.mintAssets(
+            packages2,
+            recipients2
+        );
+
+        (uint256 fees, , , bool bill) = coord.customers(invoiceAddress);
+        (uint256 fees2, , , bool bill2) = coord.customers(invoiceAddress2);
+
+        // Testing to make sure if there is any lag in the upkeep and TXs get
+        // submitted in between that we dont lose any addresses in the billing
+        bytes memory billsBytes = coord.getEncodedRequiredBills();
+        require(keccak256(billsBytes) != keccak256(data), "Bytes not equal.");
+        address[] memory billsRequired = abi.decode(billsBytes, (address[]));
+
+        coord.performUpkeep(data);
+
+        // Expect the balance of the customer to go down - fees
+        assertEq(invoiceAddress.balance, 0.1 ether - fees);
+        assertEq(invoiceAddress2.balance, 0.1 ether - fees2);
+        // Expect balance of contract to go up + fees
+        assertEq(address(coord).balance, fees + fees2);
+
+        // Expect ready to bill for the invoice to be false
+        (fees, , , bill) = coord.customers(invoiceAddress);
+        assertEq(fees, 0);
+        assert(!bill);
+
+        (fees2, , , bill2) = coord.customers(invoiceAddress);
+        assertEq(fees2, 0);
+        assert(!bill2);
+
+        // Expect the number of bills required to be 0
+        billsBytes = coord.getEncodedRequiredBills();
+        billsRequired = abi.decode(billsBytes, (address[]));
+        assertEq(billsRequired.length, 0);
+    }
+
     function testPerformUpkeep() public {
         vm.deal(invoiceAddress, 1 ether);
         
@@ -318,6 +367,7 @@ contract CoordinatorTest is Helpers {
         billsRequired = abi.decode(billsBytes, (address[]));
         assertEq(billsRequired.length, 0);
     }
+
 
     // Failure to pay bills case
 

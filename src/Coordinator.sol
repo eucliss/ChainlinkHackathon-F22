@@ -223,8 +223,8 @@ contract Coordinator is KeeperCompatibleInterface {
         view
         override
         returns (bool upkeepNeeded, bytes memory performData)
-    {
-
+    {           
+        // delete paymentsDue;
         return paymentsDue.length > 0 ?
             (true, abi.encode(paymentsDue)) :
             (false, abi.encode(paymentsDue));
@@ -239,13 +239,17 @@ contract Coordinator is KeeperCompatibleInterface {
     }
 
     function performUpkeep(
-        bytes calldata performData
+        bytes memory performData
     ) external override {
         // add some verification
         // (bool upkeepNeeded, ) = checkUpkeep("");
         // require(upkeepNeeded, "Not Upkeep");
-
         address[] memory billedCustomers = abi.decode(performData, (address[]));
+        if(keccak256(abi.encode(paymentsDue)) != keccak256(performData)) {
+            billedCustomers = paymentsDue;
+        }
+
+        delete paymentsDue;
 
         for(uint256 index = 0; index < billedCustomers.length; index++) {
             _billCustomer(billedCustomers[index]);    
@@ -259,8 +263,6 @@ contract Coordinator is KeeperCompatibleInterface {
         // If false we can push the address to a memory array
         // Come back and set payments due to the leftovers
         // If they're too high on value then lock em
-        
-        delete paymentsDue;
 
 
 
@@ -280,10 +282,10 @@ contract Coordinator is KeeperCompatibleInterface {
             customers[customer].feesDue = 0;
             customers[customer].setToBill = false;
         } else {
-            // This needs some work
-            if(customers[customer].feesDue > 0) {
-                customers[customer].eligible = false;
-            }
+            paymentsDue.push(customer);
+
+            // Maybe we add some logic to lock an account if its balance is too in debt
+
         }
     }
 
