@@ -3,6 +3,7 @@ out/
 .gas-snapshot
 .vscode/
 .env
+.env*
 .encryptedKey
 broadcast/
 

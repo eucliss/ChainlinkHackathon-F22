@@ -1,0 +1,6 @@
+[CurrentSDK]
+
+- [Customers]
+    invoiceAddress
+    assets - address[]
+
