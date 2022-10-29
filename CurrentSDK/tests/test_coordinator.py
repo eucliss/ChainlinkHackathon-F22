@@ -15,15 +15,22 @@ addresses = dotenv_values("../.env.addresses")
 COORDABI = "../out/Coordinator.sol/Coordinator.json"
 COORDADDRESS = web3.Web3.toChecksumAddress(addresses['COORDINATORADDRESS'])
 
-# TOKEN = web3.Web3.toChecksumAddress(addresses['TOKEN'])
-# NFT = web3.Web3.toChecksumAddress(addresses['NFT'])
+TOKEN = web3.Web3.toChecksumAddress(addresses['TOKEN'])
+NFT = web3.Web3.toChecksumAddress(addresses['NFT'])
 
-TOKEN = web3.Web3.toChecksumAddress('0x10000000000000000000000000000000000adEaD')
-NFT = web3.Web3.toChecksumAddress('0x20000000000000000000000000000000000adEaD')
+# TOKEN = web3.Web3.toChecksumAddress('0x101000000000000000000000000000000001dEaD')
+# NFT = web3.Web3.toChecksumAddress('0x202000000000000000000000000000000001dEaD')
 
 CONTROLLER = web3.Web3.toChecksumAddress(addresses['CONTROLLER'])
 CONTROLLERPK = addresses['CONTROLLERPK']
 
+ALICE = web3.Web3.toChecksumAddress('0x11111000000000000000000000000000000A11Ce')
+BOB = web3.Web3.toChecksumAddress('0x1111100000000000000000000000000000000B0B')
+
+DATABASE = 'TestingDB'
+COLLECTION = 'TestingCustomers'
+ASSETCOLLECTION = 'TestingAssets'
+USERCOLLECTION = 'TestingUsers'
 
 ItemTypes = {
     'NATIVE': 0,
@@ -35,7 +42,7 @@ ItemTypes = {
 
 @pytest.fixture
 def coord():
-    return Coordinator()
+    return Coordinator(database=DATABASE, collection=COLLECTION)
 
 @pytest.fixture
 def assets():
@@ -45,21 +52,71 @@ def assets():
 def itemTypes():
     return [ItemTypes['ERC20'], ItemTypes['ERC721']]
 
+@pytest.fixture
+def packages():
+    package1 = {
+        'itemType': 1,
+        'token': TOKEN,
+        'identifier': 1,
+        'amount': 10
+    }
+    package2 = {
+        'itemType': 2,
+        'token': NFT,
+        'identifier': 0,
+        'amount': 1
+    }
+    return [package1, package2]
+
+@pytest.fixture
+def recipients():
+    return [ALICE, BOB]
+
 def test_register_customer(coord):
     res = coord.registerCustomer()
-    assert(web3.Web3.isAddress(res))
+    assert(web3.Web3.isAddress(res['customer']))
+    assert(res['controller'] == CONTROLLER)
 
 def test_register_assets(coord, assets, itemTypes):
-    invoiceAddress = coord.registerCustomer()
+    invoiceAddress = coord.registerCustomer()['customer']
     res = coord.registerAssets(
         invoiceAddress,
         assets,
         itemTypes
     )
-    print(res)
     assert(invoiceAddress == res['customer'])
     assert(assets == res['additionalContracts'])
     assert(assets == res['updatedContracts'])
-    # print(res)
+
+def test_mint_assets(coord, packages, recipients):
+    # No need to register assets cause its already done
+    res = coord.mintAssets(
+        packages,
+        recipients
+    )
+    package1 = {
+        'itemType': res['packages'][0][0],
+        'token': res['packages'][0][1],
+        'identifier': res['packages'][0][2],
+        'amount': res['packages'][0][3]
+    }
+    assert(package1 == packages[0])
+    package2 = {
+        'itemType': res['packages'][1][0],
+        'token': res['packages'][1][1],
+        'identifier': res['packages'][1][2],
+        'amount': res['packages'][1][3]
+    }
+    assert(package2 == packages[1])
+    assert(res['recipients'] == recipients)
+
+def test_register_assets(coord, assets, itemTypes):
+    invoiceAddress = coord.registerCustomer()['customer']
+    res = coord.registerWithAssets(
+        assets,
+        itemTypes
+    )
+    assert(assets == res['additionalContracts'])
+    assert(assets == res['updatedContracts'])
 
     

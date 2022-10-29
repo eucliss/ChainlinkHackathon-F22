@@ -5,8 +5,6 @@ import web3
 
 from db import MongoDB
 from connector import Connector
-from assetStore import AssetStore
-
 from decimal import Decimal
 
 
@@ -30,7 +28,7 @@ CUSTODIALPK = addresses['CUSTODIALPK']
 
 
 # Connector class will be designed to connect everything to Web3.
-class CustomerStore():
+class AssetStore():
     """
     Database connector for storing customers and their assets.
 
@@ -44,7 +42,7 @@ class CustomerStore():
     def __init__(
             self, 
             database='CurrentSDK', 
-            collection='Customers',
+            collection='Assets',
         ):
         """Initialize for the coordinator."""
 
@@ -55,39 +53,11 @@ class CustomerStore():
         self.db = self.client.setDatabase(database)
         self.collection = self.client.setCollection(collection)
         
-        self.nextCustomerIdentifier = 1
-        self.customerIDPrefix = 'CUST'
+        self.nextAssetIdentifier = 1
+        self.assetIDPrefix = 'ASS'
 
-    # Need to setup all the functionality that is required now in the coordinator.py
-    # So DB connection functionality for 
-    # Registering a customer
-    def addNewCustomer(self, invoiceAddress):
-        """
-            [Customers]
-            identifier
-            invoiceAddress
-            assets - assetIdentifier[]
-
-        """
-        recs = self.client.getRecord(
-            {
-                'invoiceAddress': invoiceAddress
-            }, 
-            db=self.databaseName, 
-            collection=self.collectionName
-        )
-        if len(recs) > 0:
-            return 0, False, "Invoice address already a customer"
-        obj = {
-                'customerIdentifier': f'{self.customerIDPrefix}{self.nextCustomerIdentifier}',
-                'invoiceAddress': invoiceAddress
-            }
-        self.client.storeRecord(obj, self.databaseName, self.collectionName)
-        self.nextCustomerIdentifier += 1
-        return f'{self.customerIDPrefix}{self.nextCustomerIdentifier - 1}', True, "Successfully stored new customer"
-
-    # Registering with assets
-    def addCustomerWithAssets(self, invoiceAddress, assetAddresses, itemTypes, assetStore=None):
+    # Registering assets
+    def addAssets(self, customerIdentifier, assetAddresses, itemTypes):
         """
             [Asset]
             assetIdentifier
@@ -95,25 +65,30 @@ class CustomerStore():
             address
             itemtype
         """
-        customerIdentifier, success, msg = self.addNewCustomer(invoiceAddress)
-        if not success:
-            return 0, success, msg 
-        
-        if assetStore == None:
-            assetStore = AssetStore()
-        res, success, msg = assetStore.addAssets(customerIdentifier, assetAddresses, itemTypes)
+        res = []
+        for i in range(0, len(assetAddresses)):
+            recs = self.client.getRecord(
+                {
+                    'assetAddress': assetAddresses[i]
+                }, 
+                db=self.databaseName, 
+                collection=self.collectionName
+            )
+            if len(recs) > 0:
+                return 0, False, "Asset already registered"
 
-        if not success:
-            return None, success, msg
+            obj = {
+                'assetIdentifier': f'{self.assetIDPrefix}{self.nextAssetIdentifier}',
+                'customerIdentifier': customerIdentifier,
+                'assetAddress': assetAddresses[i],
+                'itemType': itemTypes[i]
+            }
+            res.append(obj)
+            self.client.storeRecord(obj, self.databaseName, self.collectionName)
+            self.nextAssetIdentifier += 1
 
-        resObj = {
-            'customerIdentifier': customerIdentifier,
-            'assetsAdded': res
-        }
+        return res, True, "Successfully stored new assets"
 
-        return resObj, success, "Successfully created new customer and added assets."
-
-        
             
     # minting assets
     # Registering with assets
@@ -139,4 +114,4 @@ class CustomerStore():
     # Customer gets billed, user doesnt have to care
 
         
-customerStore = CustomerStore()
+assetStore = AssetStore()

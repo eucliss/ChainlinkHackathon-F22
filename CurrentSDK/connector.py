@@ -18,13 +18,14 @@ class Connector():
         """Initialize for the coordinator."""
         self.coordAddress = web3.Web3.toChecksumAddress(coordinatorAddress)
         self.abi = abi
+        self.contract = None
         self.w3 = web3.Web3(web3.HTTPProvider('http://127.0.0.1:8545'))
         if not self.w3.isConnected():
             print("Error loading web3 connection")
         self.version = self.w3.clientVersion
 
         self.attachContract()
-        self.contract
+
 
 
     def attachContract(self):
@@ -34,12 +35,5 @@ class Connector():
         self.contract = self.w3.eth.contract(address=self.coordAddress, abi=self.abi)
         return self.contract 
 
-    # Register as a customer
-
-    # Register assets
-
-    # Register with assets
-
-    # Distribute Assets
 
 connector = Connector()
