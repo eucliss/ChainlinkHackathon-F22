@@ -1,6 +1,25 @@
 [CurrentSDK]
 
 - [Customers]
+    identifier
     invoiceAddress
-    assets - address[]
+    assets - assetIdentifier[]
+
+- [Asset]
+    assetIdentifier
+    customerIdentifier
+    address
+    itemtype
+
+- [Users]
+    identifier - Set Here
+    username - from registrar
+    custodial - True, False
+    address (optional) - defaults to custodial address
+    assets - {
+            assetIdentifier,
+            ammount
+            nftIdentifiers
+            }
+
 

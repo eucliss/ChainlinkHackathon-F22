@@ -28,6 +28,10 @@ contract Coordinator is KeeperCompatibleInterface {
         address[] additionalContracts, 
         address[] updatedContracts
     );
+    event MintedAssets(
+        PackageItem[] packages,
+        address[] recipients
+    );
 
     address public immutable customerLogic;
     uint256 public initialDeposit = 0.1 ether;
@@ -157,6 +161,7 @@ contract Coordinator is KeeperCompatibleInterface {
             require(assets[packages[i].token].executor == msg.sender, "Not the asset executor.");
             _mintPackage(packages[i], recipients[i]);
         }
+        emit MintedAssets(packages, recipients);
     }
 
     // Mint a singular package to a singular address
