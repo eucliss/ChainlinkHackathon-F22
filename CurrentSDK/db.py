@@ -86,5 +86,10 @@ class MongoDB():
             res = self.client[db][collection].update_one(oldRecord, newRecord)
         return res
 
+    def kill(self, d, c):
+        self.setDatabase(d)
+        self.setCollection(c)
+        self.collection.drop()
+
 
 db = MongoDB()
