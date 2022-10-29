@@ -36,7 +36,7 @@ contract GameERC721 is ERC721 {
         returns(bool)
         {
         _mint(to, tokenId);
-        tokenId++;
+        nextTokenId++;
         return true;
     }
 
