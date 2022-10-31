@@ -9,7 +9,7 @@
     assetIdentifier
     customerIdentifier
     address
-    itemtype
+    itemType
 
 - [Users]
     identifier - Set Here
@@ -17,9 +17,23 @@
     custodial - True, False
     address (optional) - defaults to custodial address
     assets - {
-            assetIdentifier,
-            ammount
-            nftIdentifiers
+            assetIdentifier - {
+                    itemTypeObject
+                }
             }
+        }
 
 
+[ERC20]
+amount
+
+[ERC721]
+amount
+ids[]
+
+[ERC1155]
+ids {
+   id {
+    amount
+   } 
+}

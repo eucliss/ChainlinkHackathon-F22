@@ -23,7 +23,6 @@ class Connector():
         if not self.w3.isConnected():
             print("Error loading web3 connection")
         self.version = self.w3.clientVersion
-
         self.attachContract()
 
 
@@ -34,6 +33,39 @@ class Connector():
         self.abi = data['abi']
         self.contract = self.w3.eth.contract(address=self.coordAddress, abi=self.abi)
         return self.contract 
+    
+    def getAbi(self, contractString):
+        """
+            returns abi, bytecode
+        """
+        location = f'../out/{contractString}.sol/{contractString}.json'
+        with open(location) as json_file:
+            data = json.load(json_file)
+        return data['abi'], data['bytecode']['object']
+    
+
+    def deployContract(self, contractString=None):
+        """
+            contractString must be in the out folder
+
+            returns (
+                contractAddress,
+                ABI,
+                contract
+            )
+        """
+        if contractString == None:
+            return False, "ERROR no contract selected", "", ""
+        abi, bytecode = self.getAbi(contractString)
+        ct = self.w3.eth.contract(abi=abi, bytecode=bytecode)
+        tx_hash = ct.constructor().transact()
+        tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+        c = self.w3.eth.contract(
+            address=tx_receipt.contractAddress,
+            abi=abi
+        )
+        return True, tx_receipt.contractAddress, abi, c
+
 
 
 connector = Connector()

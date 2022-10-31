@@ -110,6 +110,14 @@ def objectsInUserStore(store, obj):
         )
     assert(len(recs) == 1)
 
+def assetInUserStore(userStore, userId, assetId):
+    recs = userStore.client.getRecord(
+            {'userIdentifier': userId},
+            db=userStore.databaseName, 
+            collection=userStore.collectionName
+        )
+    assert(recs[0]['assets'][assetId]['amount'] > 0)    
+
 def test_add_new_customer(store):
     killDB(store)
     prevNumber = store.nextCustomerIdentifier
@@ -186,6 +194,51 @@ def test_add_user(userStore):
     assert(recs[0]['custodial'] == True)
     assert(recs[0]['address'] == CUSTODIAL)
     assert(recs[0]['assets'] == None)
+    
+
+def test_add_asset_to_user(store, userStore, assetStore, assets, itemTypes):
+    killDB(store)
+    killAssets(assetStore)
+    killUsers(userStore)
+
+    resObj, success, mes = store.addCustomerWithAssets(
+        TESTINGADDRESS,
+        assets,
+        itemTypes,
+        assetStore
+    )
+    userIdentifier, success, mes = userStore.addUser(
+        TESTINGUSERNAME
+    )
+
+    for item in resObj['assetsAdded']:
+        assetId = item['assetIdentifier']
+        asset_obj = {
+            'assetIdentifier': assetId,
+            'amount': 10,
+            'id': 1
+        }
+        res, success, msg = userStore.addAssetItemToUser(
+            userIdentifier,
+            asset_obj,
+            assetStore
+        )
+        databaseItem = userStore.client.getRecord(
+                {
+                    'userIdentifier': userIdentifier
+                }, 
+                db=userStore.databaseName, 
+                collection=userStore.collectionName
+            )[0]
+        assets = databaseItem['assets']
+        if item['itemType'] == ItemTypes['ERC20']:
+            assert(assets[assetId]['amount'] == 10)
+        elif item['itemType'] == ItemTypes['ERC721']:
+            assert(assets[assetId]['amount'] == 1)
+            assert(assets[assetId]['ids'] == [1])
+        assert(len(assets[assetId].keys()) > 0)
+        assetInUserStore(userStore, userIdentifier, assetId)
+
 
 
     

@@ -113,13 +113,9 @@ class CustomerStore():
 
         return resObj, success, "Successfully created new customer and added assets."
 
-        
-            
     # minting assets
-    # Registering with assets
 
-    # I think it may be best to just create a function that takes an object then
-    # sets up the customer store stuff
+    # Gotta do the minting and the exporting next ^^ Then its bot shit time
 
     # Once this is done I think we may be ready to move forward with more of the bot stuff
     # I need a way to re-deploy the contracts and stuff as well
@@ -130,7 +126,7 @@ class CustomerStore():
 
     # That way the demo can be:
     # Enter discord
-    # Register as a user
+    # Register as a user  x 
     # Play the game
     # Win NFT or something from game
     # see that it is allocated to you from discord

@@ -56,6 +56,19 @@ class AssetStore():
         self.nextAssetIdentifier = 1
         self.assetIDPrefix = 'ASS'
 
+    def getAssetIdentifier(self, assetAddress):
+        recs = self.client.getRecord(
+            {
+                'assetAddress': assetAddress
+            }, 
+            db=self.databaseName, 
+            collection=self.collectionName
+        )
+        if len(recs) > 0:
+            return "NO ASSET"
+        return recs[0]['assetIdentifier']
+    
+
     # Registering assets
     def addAssets(self, customerIdentifier, assetAddresses, itemTypes):
         """
@@ -63,7 +76,7 @@ class AssetStore():
             assetIdentifier
             customerIdentifier
             address
-            itemtype
+            itemType
         """
         res = []
         for i in range(0, len(assetAddresses)):
