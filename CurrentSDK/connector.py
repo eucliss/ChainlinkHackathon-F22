@@ -8,8 +8,13 @@ from db import MongoDB
 load_dotenv()
 
 token = os.getenv('INFURA_KEY')
+addresses = dotenv_values("../.env.addresses")
+
 COORDADDRESS = dotenv_values("../.env.addresses")['COORDINATORADDRESS']
 COORDABI = "../out/Coordinator.sol/Coordinator.json"
+
+CUSTODIAL = web3.Web3.toChecksumAddress(addresses['CUSTODIAL'])
+CUSTODIALPK = addresses['CUSTODIALPK']
 
 # Connector class will be designed to connect everything to Web3.
 class Connector():
@@ -65,6 +70,18 @@ class Connector():
             abi=abi
         )
         return True, tx_receipt.contractAddress, abi, c
+
+    def getCustodialBalance(self, contractAddress, contractString):
+        abi, _ = self.getAbi(contractString)
+        contract = self.w3.eth.contract(address=contractAddress, abi=abi)
+
+        try: 
+            res = contract.functions.balanceOf(
+                CUSTODIAL
+            ).call({'from': CUSTODIAL})
+            return res
+        except:
+            return "BROKEN CONTRACT"
 
 
 

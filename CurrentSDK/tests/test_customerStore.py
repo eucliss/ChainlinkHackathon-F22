@@ -33,7 +33,7 @@ COLLECTION = 'TestingCustomers'
 ASSETCOLLECTION = 'TestingAssets'
 USERCOLLECTION = 'TestingUsers'
 
-TESTINGADDRESS = '0x0'
+TESTINGADDRESS = '0x101000000000000000000000000000000001dEaD'
 TESTINGUSERNAME = '0xTesting'
 
 @pytest.fixture
@@ -128,6 +128,19 @@ def test_add_new_customer(store):
     assert(prevNumber + 1 == store.nextCustomerIdentifier)
     assert(mes == "Successfully stored new customer")
     objectsInCustomerStore(store, {'customerIdentifier': customerId})
+
+def test_get_id_from_address(store):
+    killDB(store)
+    customerId, success, mes = store.addNewCustomer(TESTINGADDRESS)
+    res = store.getCustomerIdFromInvoiceAddress(TESTINGADDRESS)
+    assert(res == customerId)
+
+def test_get_address_from_id(store):
+    killDB(store)
+    customerId, success, mes = store.addNewCustomer(TESTINGADDRESS)
+    print(customerId)
+    res = store.getCustomerInvoiceAddress(customerId)
+    assert(res == TESTINGADDRESS)
     
 def test_add_new_assets(store, assetStore, assets, itemTypes):
     killDB(store)
@@ -239,6 +252,93 @@ def test_add_asset_to_user(store, userStore, assetStore, assets, itemTypes):
         assert(len(assets[assetId].keys()) > 0)
         assetInUserStore(userStore, userIdentifier, assetId)
 
+def test_add_multiple_assets_to_user(store, userStore, assetStore, assets, itemTypes):
+    killDB(store)
+    killAssets(assetStore)
+    killUsers(userStore)
+
+    resObj, success, mes = store.addCustomerWithAssets(
+        TESTINGADDRESS,
+        assets,
+        itemTypes,
+        assetStore
+    )
+    userIdentifier, success, mes = userStore.addUser(
+        TESTINGUSERNAME
+    )
+
+    # Multiple ERC additions
+
+    assetId = resObj['assetsAdded'][0]['assetIdentifier']
+    asset_obj = {
+        'assetIdentifier': assetId,
+        'amount': 10,
+    }
+
+    res, success, msg = userStore.addAssetItemToUser(
+        userIdentifier,
+        asset_obj,
+        assetStore
+    )
+    assets = userStore.getUserAssets(TESTINGUSERNAME)
+    assert(assets[assetId]['amount'] == 10)
+
+    res, success, msg = userStore.addAssetItemToUser(
+        userIdentifier,
+        asset_obj,
+        assetStore
+    )
+    assets = userStore.getUserAssets(TESTINGUSERNAME)
+    print(assets)
+    assert(assets[assetId]['amount'] == 20)
+
+def test_add_multiple_nfts_to_user(store, userStore, assetStore, assets, itemTypes):
+    killDB(store)
+    killAssets(assetStore)
+    killUsers(userStore)
+
+    resObj, success, mes = store.addCustomerWithAssets(
+        TESTINGADDRESS,
+        assets,
+        itemTypes,
+        assetStore
+    )
+    userIdentifier, success, mes = userStore.addUser(
+        TESTINGUSERNAME
+    )
+
+    # Multiple ERC additions
+
+    assetId = resObj['assetsAdded'][1]['assetIdentifier']
+    asset_obj = {
+        'assetIdentifier': assetId,
+        'amount': 1,
+        'id': 0
+    }
+
+    res, success, msg = userStore.addAssetItemToUser(
+        userIdentifier,
+        asset_obj,
+        assetStore
+    )
+    assets = userStore.getUserAssets(TESTINGUSERNAME)
+    assert(assets[assetId]['amount'] == 1)
+    assert(assets[assetId]['ids'] == [0])
+
+    asset_obj = {
+        'assetIdentifier': assetId,
+        'amount': 1,
+        'id': 1
+    }
+    res, success, msg = userStore.addAssetItemToUser(
+        userIdentifier,
+        asset_obj,
+        assetStore
+    )
+    assets = userStore.getUserAssets(TESTINGUSERNAME)
+    print(assets)
+    assert(assets[assetId]['amount'] == 2)
+    assert(assets[assetId]['ids'] == [0, 1])
 
 
     

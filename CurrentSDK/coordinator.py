@@ -59,6 +59,15 @@ class Coordinator():
         self.customerCollection = customerCollection
         self.db = self.client.setDatabase(database)
         self.collection = self.client.setCollection(customerCollection)
+
+    def restart(self):
+        self.customerStore.client.kill(self.customerStore.databaseName, self.customerStore.collectionName)
+        self.assetStore.client.kill(self.assetStore.databaseName, self.assetStore.collectionName)
+        self.userStore.client.kill(self.userStore.databaseName, self.userStore.collectionName)
+        print(self.customerStore.client.getAllRecords())
+        print(self.assetStore.client.getAllRecords())
+        print(self.userStore.client.getAllRecords())
+
         
     # Register as a customer
 
@@ -138,6 +147,19 @@ class Coordinator():
         res = self.assetStore.addAssets(customerIdentifier, assetAddresses, assetItemTypes)
 
         return event
+    
+    def getCustomerBill(self, customerId=None, invoiceAddress=None):
+        if customerId == None and invoiceAddress == None:
+            return "ERR NO CUSTOMER TO SEARCH FOR"
+        
+        if invoiceAddress == None:
+            invoiceAddress = self.customerStore.getCustomerInvoiceAddress(customerId)
+
+        res = self.coord.functions.customers(
+            invoiceAddress
+        ).call({'from': REGISTRAR})
+        return res[0]
+
 
     def mintAssets(self, packages, recipientUsernames):
         """
@@ -149,6 +171,12 @@ class Coordinator():
         Returns a dictionary:
         {
             'packages': PackageItem[] packages minted to customers
+                - {
+                    'itemType' : itemtype (0-5)
+                    'token': Address of the token
+                    'identifier': NFT identifiers
+                    'amount': amount of tokens
+                }
             'recipients': address[] addresses the items were minted to
         }
         """

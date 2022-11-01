@@ -64,7 +64,7 @@ class AssetStore():
             db=self.databaseName, 
             collection=self.collectionName
         )
-        if len(recs) > 0:
+        if len(recs) == 0:
             return "NO ASSET"
         return recs[0]['assetIdentifier']
     
