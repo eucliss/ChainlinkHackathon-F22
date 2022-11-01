@@ -70,7 +70,7 @@ class UserStore():
             collection=self.collectionName
         )
         
-        if len(recs) > 0:
+        if len(recs) == 0:
             return "NO USER"
 
         return recs[0]['userIdentifier']
@@ -84,7 +84,7 @@ class UserStore():
             collection=self.collectionName
         )
         
-        if len(recs) > 0:
+        if len(recs) == 0:
             return "NO USER"
 
         return recs[0]['assets']
@@ -194,20 +194,32 @@ class UserStore():
             return 0, False, "Asset does not exist."
 
         assetId = asset_object['assetIdentifier']
-        newObject = asset_object
-
         try:
-            if recs[0]['assets'][assetId].keys() > 0:
-                currentAssets = recs[0]['assets'][assetId]
-
-                if assetType == ItemTypes['ERC20']:
-                    newObject[assetId]['amount'] += currentAssets['amount']
-                elif assetType == ItemTypes['ERC721']:
-                    newObject[assetId]['id'] = currentAssets['ids'].append(newObject[assetId]['id'])
-                    newObject[assetId]['amount'] += currentAssets['amount']
-                # Need ERC721 now
-                else:
-                    return 0, False, "Asset type invalid."
+            newObject = {
+                str(asset_object['assetIdentifier']): {
+                    'amount': asset_object['amount'],
+                    'ids': [asset_object['id']]
+                }
+            }
+        except:
+            print("IN EXCEPT")
+            newObject = {
+                str(asset_object['assetIdentifier']): {
+                    'amount': asset_object['amount'],
+                }
+            }
+        try:
+            currentAssets = recs[0]['assets'][assetId]
+            if assetType == ItemTypes['ERC20']:
+                newObject[assetId]['amount'] += currentAssets['amount']
+            elif assetType == ItemTypes['ERC721']:
+                newIds = currentAssets['ids']
+                newIds.append(newObject[assetId]['ids'][0])
+                newObject[assetId]['ids'] = newIds
+                newObject[assetId]['amount'] += currentAssets['amount']
+            # Need ERC721 now
+            else:
+                return 0, False, "Asset type invalid."
             
 
         except:

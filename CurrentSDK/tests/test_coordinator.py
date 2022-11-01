@@ -137,6 +137,45 @@ def test_register_customer(coord):
     assert(res['controller'] == CONTROLLER)
     objectsInCustomerStore(coord.customerStore, {'invoiceAddress': res['customer']})
 
+def test_get_fees_init(coord):
+    killDB(coord.customerStore)
+    killAssets(coord.assetStore)
+    killUsers(coord.userStore)
+    customer = coord.registerCustomer()['customer']
+    res = coord.getCustomerBill(invoiceAddress=customer)
+    assert(res == 0)
+    
+def test_get_fees_loaded(coord, assets, itemTypes, recipients):
+    killDB(coord.customerStore)
+    killAssets(coord.assetStore)
+    killUsers(coord.userStore)
+    packages = getPackages(assets)
+
+    customer = coord.registerCustomer()['customer']
+    res = coord.getCustomerBill(invoiceAddress=customer)
+    assert(res == 0)
+
+    usernames = []
+    userIds = []
+    for user in recipients:
+        res, success, msg = coord.userStore.addUser(user['username'],custodial=False, address=user['address'])
+        usernames.append(user['username'])
+        userIds.append(res)
+
+    res = coord.registerAssets(
+        customer,
+        assets,
+        itemTypes
+    )
+    res = coord.mintAssets(
+        packages,
+        usernames
+    )
+    res = coord.getCustomerBill(invoiceAddress=customer)
+    assert(res != 0)
+
+
+
 def test_register_assets(coord, assets, itemTypes):
     invoiceAddress = coord.registerCustomer()['customer']
     res = coord.registerAssets(

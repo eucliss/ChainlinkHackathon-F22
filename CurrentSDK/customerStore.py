@@ -57,6 +57,30 @@ class CustomerStore():
         
         self.nextCustomerIdentifier = 1
         self.customerIDPrefix = 'CUST'
+    
+    def getCustomerIdFromInvoiceAddress(self, invoiceAddress):
+        recs = self.client.getRecord(
+            {
+                'invoiceAddress': invoiceAddress
+            }, 
+            db=self.databaseName, 
+            collection=self.collectionName
+        )
+        if len(recs) == 0:
+            return 0, False, "Invoice address does not exist"
+        return recs[0]['customerIdentifier']
+    
+    def getCustomerInvoiceAddress(self, customerId):
+        recs = self.client.getRecord(
+            {
+                'customerIdentifier': customerId
+            }, 
+            db=self.databaseName, 
+            collection=self.collectionName
+        )
+        if len(recs) == 0:
+            return 0, False, f'Customer does not exist: {customerId}'
+        return recs[0]['invoiceAddress']
 
     # Need to setup all the functionality that is required now in the coordinator.py
     # So DB connection functionality for 
