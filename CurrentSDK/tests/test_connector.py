@@ -11,6 +11,13 @@ from dotenv import load_dotenv, dotenv_values
 
 load_dotenv()
 
+ItemTypes = {
+    'NATIVE': 0,
+    'ERC20': 1,
+    'ERC721': 2,
+    'ERC1155': 3,
+    'NONE': 4
+}
 
 GAMEERC20 = 'GameERC20'
 GAMEERC721 = 'GameERC721'
@@ -68,6 +75,25 @@ def test_getCustodialBalance_NFT(connector):
     val = connector.getCustodialBalance(addr, GAMEERC721)
 
     assert(val == 1)
+
+def test_get_asset_contract(connector):
+    # ERC20 
+    success, addr, abi, _ = connector.deployContract('ERC20')
+    assert(success)
+    contract = connector.getAssetContract(addr, ItemTypes['ERC20'])
+    assert('name' in contract.functions)
+    assert('approve' in contract.functions)
+    assert('transfer' in contract.functions)
+
+    # ERC721
+    success, addr, abi, _ = connector.deployContract('ERC721')
+    assert(success)
+    contract = connector.getAssetContract(addr, ItemTypes['ERC721'])
+    assert('name' in contract.functions)
+    assert('approve' in contract.functions)
+    assert('transferFrom' in contract.functions)
+
+
 
 
 

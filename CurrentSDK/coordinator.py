@@ -1,3 +1,6 @@
+from pickle import FALSE, NEWOBJ
+from sqlite3 import connect
+from struct import pack
 from dotenv import load_dotenv, dotenv_values
 import os
 import json
@@ -10,8 +13,6 @@ from customerStore import CustomerStore
 from assetStore import AssetStore
 from userStore import UserStore
 
-
-
 load_dotenv()
 
 token = os.getenv('INFURA_KEY')
@@ -19,6 +20,8 @@ addresses = dotenv_values("../.env.addresses")
 
 COORDABI = "../out/Coordinator.sol/Coordinator.json"
 COORDADDRESS = web3.Web3.toChecksumAddress(addresses['COORDINATORADDRESS'])
+BASINADDRESS = web3.Web3.toChecksumAddress(addresses['BASINADDRESS'])
+
 
 REGISTRAR = web3.Web3.toChecksumAddress(addresses['REGISTRAR'])
 REGISTRARPK = addresses['REGISTRARPK']
@@ -29,6 +32,13 @@ CONTROLLERPK = addresses['CONTROLLERPK']
 CUSTODIAL = web3.Web3.toChecksumAddress(addresses['CUSTODIAL'])
 CUSTODIALPK = addresses['CUSTODIALPK']
 
+ItemTypes = {
+    'NATIVE': 0,
+    'ERC20': 1,
+    'ERC721': 2,
+    'ERC1155': 3,
+    'NONE': 4
+}
 
 # Connector class will be designed to connect everything to Web3.
 class Coordinator():
@@ -46,10 +56,13 @@ class Coordinator():
             connector = Connector(COORDADDRESS)
         self.connector = connector
         self.coord = connector.contract
+        self.basin = connector.basin
         self.w3 = connector.w3
         self.customerStore = CustomerStore(database=database, collection=customerCollection)
         self.assetStore = AssetStore(database=database, collection=assetCollection)
         self.userStore = UserStore(database=database, collection=userCollection)
+
+        self.custodialAddress = CUSTODIAL
 
         # DB
         self.client = MongoDB()
@@ -67,7 +80,6 @@ class Coordinator():
         print(self.customerStore.client.getAllRecords())
         print(self.assetStore.client.getAllRecords())
         print(self.userStore.client.getAllRecords())
-
         
     # Register as a customer
 
@@ -100,6 +112,192 @@ class Coordinator():
         event = self.coord.events.CustomerRegistered().processReceipt(tx_receipt)
         event = event[0]['args']
         return event
+
+    def translateUserAssetsToPackages(self, assets):
+        """
+        input:
+            {
+                assetIdentifier: {
+                    amount
+                    ids[]
+                }, ...
+            }
+
+        returns:
+        'packages': PackageItem[] packages minted to customers
+                - {
+                    'itemType' : itemtype (0-5)
+                    'token': Address of the token
+                    'identifier': NFT identifiers
+                    'amount': amount of tokens
+                }
+        """
+        if len(assets.keys()) == 0:
+            return "NO ASSETS"
+        packages = []
+        for assetId in assets.keys():
+            assetObject = self.assetStore.getAssetFromIdentifier(assetId)
+            if assetObject['itemType'] == ItemTypes['ERC721']:
+                p = self.createPackagesFromAssetObject(
+                    assetObject, 
+                    amount=1,
+                    ids=assets[assetId]['ids'])
+                packages += p
+            elif assetObject['itemType'] == ItemTypes['ERC20']:
+                p = self.createPackagesFromAssetObject(
+                    assetObject, 
+                    amount=assets[assetId]['amount'])
+                packages += p
+        return packages
+            
+    
+    def createPackagesFromAssetObject(self, assetObj, amount=0, ids=None):
+        """
+        Takes an asset object from the DB:
+            [Asset]
+            assetIdentifier
+            customerIdentifier
+            assetAddress
+            itemType
+        """
+        packages = []
+        if assetObj['itemType'] == ItemTypes['ERC721']:
+            if ids == None:
+                return []
+            for nft in ids:   
+                obj = {
+                        'itemType': assetObj['itemType'],
+                        'token': web3.Web3.toChecksumAddress(assetObj['assetAddress']),
+                        'identifier': nft,
+                        'amount': 1
+                    }
+                packages.append(obj)
+        elif assetObj['itemType'] == ItemTypes['ERC20']:
+            if amount == 0:
+                return []
+            obj = {
+                        'itemType': assetObj['itemType'],
+                        'token': web3.Web3.toChecksumAddress(assetObj['assetAddress']),
+                        'identifier': 0,
+                        'amount': amount
+            }
+            packages.append(obj)
+        return packages
+    
+
+    def setApprovalsForPackages(self, packages):
+        """
+        $$ TOKEN INTERACTIONS $$
+
+        [packages]
+        [
+            {   'itemType': 1, 
+                'token': '0xC0939333007bD49D9f454dc81B4429740A74E475', 
+                'identifier': 0, 
+                'amount': 10
+            } ... 
+        ]
+
+        """
+        for item in packages:
+            try:
+                ct = self.connector.getAssetContract(item['token'], item['itemType'])
+                if item['itemType'] == ItemTypes['ERC20']:
+                    tx_hash = ct.functions.approve(
+                        BASINADDRESS,
+                        item['amount']
+                    ).transact({'from': CUSTODIAL})
+                    tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+                    # Parse the event object for the return later
+                    event = ct.events.Approval().processReceipt(tx_receipt)
+                    event = event[0]['args']
+                    assert(event['owner'] == CUSTODIAL)
+                    assert(event['amount'] == item['amount'])
+
+                if item['itemType'] == ItemTypes['ERC721']:
+                    tx_hash = ct.functions.approve(
+                        BASINADDRESS,
+                        item['identifier']
+                    ).transact({'from': CUSTODIAL})
+                    tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+                    # Parse the event object for the return later
+                    event = ct.events.Approval().processReceipt(tx_receipt)
+                    event = event[0]['args']
+                    assert(event['owner'] == CUSTODIAL)
+                    assert(event['id'] == item['identifier'])
+            except:
+                return False, f'Item failed to be approved: {item}'
+        return True, 'All Items were approved'
+
+    def transferPackagesToRecipients(self, packages, recipients):
+        for i in range(0, len(packages)):
+            item = packages[i]
+            recipient = recipients[i]
+            try:
+                ct = self.connector.getAssetContract(item['token'], item['itemType'])
+                if item['itemType'] == ItemTypes['ERC20']:
+                    tx_hash = ct.functions.transfer(
+                        recipient,
+                        item['amount']
+                    ).transact({'from': CUSTODIAL})
+                    tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+                    # Parse the event object for the return later
+                    event = ct.events.Transfer().processReceipt(tx_receipt)
+                    event = event[0]['args']
+                    assert(event['from'] == CUSTODIAL)
+                    assert(event['amount'] == item['amount'])
+                    assert(event['to'] == recipient)
+
+                if item['itemType'] == ItemTypes['ERC721']:
+                    tx_hash = ct.functions.transferFrom(
+                        CUSTODIAL,
+                        recipient,
+                        item['identifier']
+                    ).transact({'from': CUSTODIAL})
+                    tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+                    # Parse the event object for the return later
+                    event = ct.events.Transfer().processReceipt(tx_receipt)
+                    event = event[0]['args']
+                    assert(event['from'] == CUSTODIAL)
+                    assert(event['id'] == item['identifier'])
+                    assert(event['to'] == recipient)
+            except:
+                return False, f'Item failed to be transfered: {item}'
+        return True, 'All Items were transfered'
+
+    def exportAssets(self, username):
+        """
+        $$ CONTRACT INTERACTION $$
+
+        """
+        try:
+            userObject = self.userStore.client.getRecord(
+                {'username': username}
+            )
+            if len(userObject) == 0:
+                return False, 0, "Customer invoice not registered"
+            userObject = userObject[0]
+            if userObject['address'] == CUSTODIAL:
+                return False, 0, "User has custodial address set, please set"
+
+            packages = self.translateUserAssetsToPackages(userObject['assets'])
+            recipients = [web3.Web3.toChecksumAddress(userObject['address']) for i in packages]
+            success, _ = self.transferPackagesToRecipients(packages, recipients)
+            assert(success)
+        except:
+            return False, {}, 'Failed to transfer Assets'
+
+        self.userStore.client.updateRecord(
+            {'username': username},
+            {'custodial': False},
+        )
+        resObj = {
+            'address': recipients[0],
+            'assets': packages
+        }
+        return success, resObj, 'Assets successfully exported'
+        
+
 
     def registerAssets(self, customerInvoice, assetAddresses, assetItemTypes):
         """

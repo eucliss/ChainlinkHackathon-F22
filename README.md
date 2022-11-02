@@ -2,6 +2,93 @@
 
 #### By Eucliss
 
+## WARNING: THIS WAS HACKED TOGETHER AND THE CODE SHOWS IT
+
+## Purpose
+
+There are two main drivers for this project.
+
+1. Crypto based games suck.
+  There is way too much overhead just to play a shitty crypto game.
+
+2. Chainlink Hackathon.
+  We wanted to build on-chain automated billing using Chainlink Automation.
+
+We decided to build our Chainlink Hackathon project around these two points. The future state goal of this project is to design a system that allows anyone to build fast, state-of-the-art games on top of our SDK and obfuscate all blockchain related processes from both the users as well as the developers. 
+
+The developers should be able to easily build on top of our software and deliver blockchain based assets to their users, and the users should have a completely seemless experience earning blockchain assets and exporting them to their own non-custodial wallet (if they want). On top of this, the user and the developer should NEVER see a transaction, they should never have to connect a wallet, connect to a blockchain, wait for execution of a transaction, etc. We should take care of all of that. This is how we onboard the masses to crypto: take the crypto and make it a true backend. In our model (future state), a developer should be able to make a simple call to our API/SDK to deliver an asset to a user, this can be in the form of ERC20, ERC721 or ERC1155. The developer only needs to know what the item is, and whats its identifier is, we will handle all the mapping and allocating and everything else. Then the developer just needs to check our database for what items the user has. The user on the other hand, just needs to play the game. When they're rewarded an item, we will store it at our custodial address and note in the database what assets the user has. From a UI/UX standpoint, there is no blockchain interaction or lag. A user does something in game (!roll) and they recieve an asset. When they decided they're ready to become non-custodial, they can set their blockchain address (!setAddress) through a UI, and export (!export) their assets to their non-custodial address. From then on, we store their address in the database and automatically send them all future rewards from the game. This allows for a completely seemless experience for the user, no more connect wallet, sketchy websites, sign transactions, scared of getting hacked, etc. We will control assets on our end - similar to how Coinbase works.
+
+So the question now is: transactions cost money, how are you covering the cost??
+
+This is where our smart contracts and Chainlink comes in. We have infrastructure setup to allow a new customer to register on chain. When they do so they are given a new implementation of our Customer contract and they fund it with a small fee (0.1eth). Everytime we mint an asset to a user or our custodial address, we add the transaction cost to the customers object on chain and will bill them later. This is billing through code. Then we use the chainlink DON to automate our billing process and ensure a decentralized approach to collecting fees.
+
+This is a big reason to use Chainlink, the Decentralized Oracle Network (DON). Customers dont have to rely on us to create billing statements or charge them for their usage and they can completely trust the Chainlink DON for automated execution of their invoice contract (Customer.sol). All their charges should come directly from on chain execution (there are some problems currently and future state will solve this, remember this is a hackathon POC built in <1month and 1 engineer). This allows us to build an awesome product that connects games to the blockchain, allows customers to pay us fairly and decentralized for our code execution, and allows users and developers to have a completely obfuscated experience with blockchain assets in their games.
+
+In the future state there are a few things we are considering to enhance our decentralized architecture and make the experience better for users and developers.
+  
+  1. Space and Time (decentralized database)
+    - Currently we run a local mongoDB for easy development and storage of user assets, this will need to become decentralized to ensure we follow the ethos of crypto.
+
+  2. Layer 2 (zk rollups)
+    - We intend to use Layer 2 technologies to bolster our product. ZK-rollups are the future of ethereum scaling and we will need that to execute thousands of in-game transactions a second.
+
+  3. Customer authentication through API / SDK (Zero Knowledge proofs)
+    - We intend to research how we can utilize zk proofs to confirm an SDK caller is the correct customer thus ensuring that the correct calls are being made and the correct customer is getting billed.
+  
+  4. True SDK Build out
+    - Currently we're only building in python (for dev speed). We'll need to build out the SDK in more languages that work better for gaming
+  
+  5. Customer portal (UI/UX)
+    - The customer will need a portal to perform admin activities.
+  
+  6. Fiat On-Ramp
+    - Not everyone wants to transact in crypto only, we'll need a way to make it so users can buy assets in game from a store and execute a transaction through us.
+    - We'll also need a way for customers to deposit funds to their smart contract through our UI / UX so they dont even need to touch the chain
+  
+  7. Asset generation
+    - We'll need more smart contracts to allow a customer to deploy assets through us, similar to how we deploy the customer invoice address in our Coordinator.sol
+
+This is the starting point of the company Current. I plan on building out the Current ecosystem to facilitate the web2 to web3 paradigm shift in gaming. We will onboard users and make their lives easier while also providing more ownership of assets and a trustless system of interaction. This is how we onboard games to Web3.
+
+
+## Discord Bot Commands:
+```
+1. !register
+  The register command is indended to be run for each Discord user who wants to participate in the dice roll game. This adds the user to the database and adds them to the custodial wallets for recieving assets. It is not required for the user to setup their own wallet to gain assets from the roll command, but it is required for them to register with us before running !roll.
+
+2. !roll
+  This command rolls a dice for the user (random number). The user has a chance to win 100 tokens, 1000 tokens, or 1000 tokens + 1 NFT based on the outcome of the roll. The assets are automatically stored for the user in the custodial wallet or transfered to the user if they're not custodial.
+
+3. !setAddress <address>
+  This command allows a user to set their address for assets to be sent to. If a user sets their address they will not be a custodial customer and will have full control over their assets. All future assets will be distributed to this address instead of the custodial address.
+  This command must be run before !export.
+
+4. !export
+  This command exports all your assets from the custodial address to the address you set using !setAddress. All the items you own will now be under your control. We will still keep track of your assets for use in the dice roll game in our database.
+
+5. !balance
+  This command will show you what we have in our database as your assets.
+
+6. !chainBalance
+  This command will tell you what assets you have on chain. If you have not set your address yet this command will tell you to do so - if this is the case the custodial address has all your assets.
+
+----- ADMIN COMMANDS -----
+
+1. !init
+  The init function is designed to start the entire process and register the primary customer (us). The command initialized the CONFIG to a state of initialized and also deploys assets to the chain. For our game we have 2 assets: GameERC20 and GameERC721. These are simple ERC20 and ERC721 contracts that allow us to mint tokens to the users. For the purposes of this demo we're internalizing everything. In the future we will allow anyone to create a customer in our system and get billed for their usage.
+
+
+2. !checkChain
+  This command checks the chain to determine how many assets the custodial address has.
+
+3. !getBill
+  This command checks how much the customers bill is on-chain. The customer will be billed next time the upkeep function is called by Chainlink Automation.
+
+4. !getUserObject
+  This command gets the users object from the database. (mainly for testing)
+
+```
+
 ## Basic flow for a customer
 
 ```

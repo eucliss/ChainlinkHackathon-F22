@@ -150,6 +150,59 @@ async def getBill(ctx: commands.Context):
     due = coord.getCustomerBill(customerId='CUST1')
     await ctx.send(f'Your outstanding fee is: {due} gwei')
 
+@bot.command()
+async def setAddress(ctx: commands.Context, address):
+    print(f'Setting user address')
+    coord.userStore.addAddress(str(ctx.author), address)
+    await ctx.send(f'Updated your adddress to {address}.')
+    await ctx.send(f'All following winnings will be transfered directly to your address.')
+
+@bot.command()
+async def getUserObject(ctx: commands.Context):
+    print(f'Setting user address')
+    obj = coord.userStore.client.getRecord(
+            {
+                'username': str(ctx.author)
+            },
+        )
+    await ctx.send(f'{obj[0]}')
+
+@bot.command()
+async def export(ctx: commands.Context):
+    print(f'Exporting User Assets')
+    success, _, msg = coord.exportAssets(str(ctx.author))
+    if success:    
+        await ctx.send(f'Successfully exported user assets')
+    if not success:
+        await ctx.send(f'Failed exporting user assets')
+        if 'custodial' in msg:
+            await ctx.send(f'Please execute !setAddress <your address> then try again.')
+
+@bot.command()
+async def chainBalance(ctx: commands.Context):
+    print(f'Getting user balances')
+    addr = coord.userStore.getUserAddress(str(ctx.author))
+    if addr == coord.custodialAddress:
+        await ctx.send(f'Your account is still custodial, please execute !setAddress <your address> and !export to export your assets.')
+    else:
+        print("**********************")
+        print(addr)
+        print(CONFIG['erc20']['address'])
+        tokenAmount = coord.connector.getUserBalance(
+            addr,
+            CONFIG['erc20']['address'], 
+            "GameERC20"
+        )
+        print("**********************")
+        print(addr)
+        print(CONFIG['erc721']['address'])
+        nftAmount = coord.connector.getUserBalance(
+            addr,
+            CONFIG['erc721']['address'], 
+            "GameERC721"
+        )
+        await ctx.send(f'You own {tokenAmount} Tokens (ERC20)')
+        await ctx.send(f'You own {nftAmount} NFTs (ERC721)')
 
 @bot.command()
 async def roll(ctx: commands.Context):
