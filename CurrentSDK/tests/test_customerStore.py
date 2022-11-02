@@ -16,8 +16,8 @@ load_dotenv()
 
 addresses = dotenv_values("../.env.addresses")
 
-TOKEN = web3.Web3.toChecksumAddress('0x101000000000000000000000000000000001dEaD')
-NFT = web3.Web3.toChecksumAddress('0x202000000000000000000000000000000001dEaD')
+TOKEN = web3.Web3.toChecksumAddress('0x101000000000000000000000000000000001dEAD')
+NFT = web3.Web3.toChecksumAddress('0x202000000000000000000000000000000001dEAD')
 CUSTODIAL = web3.Web3.toChecksumAddress(addresses['CUSTODIAL'])
 
 ItemTypes = {
@@ -33,7 +33,7 @@ COLLECTION = 'TestingCustomers'
 ASSETCOLLECTION = 'TestingAssets'
 USERCOLLECTION = 'TestingUsers'
 
-TESTINGADDRESS = '0x101000000000000000000000000000000001dEaD'
+TESTINGADDRESS = web3.Web3.toChecksumAddress('0x101000000000000000000000000000000001dEAD')
 TESTINGUSERNAME = '0xTesting'
 
 @pytest.fixture
@@ -141,6 +141,28 @@ def test_get_address_from_id(store):
     print(customerId)
     res = store.getCustomerInvoiceAddress(customerId)
     assert(res == TESTINGADDRESS)
+
+def test_set_address(userStore):
+    killUsers(userStore)
+
+    userIdentifier, success, mes = userStore.addUser(
+        TESTINGUSERNAME
+    )
+    objectsInUserStore(userStore, {'userIdentifier': userIdentifier})
+    recs = userStore.client.getRecord(
+        {'userIdentifier': userIdentifier},
+        db=userStore.databaseName, 
+        collection=userStore.collectionName
+    )
+    assert(recs[0]['address'] == CUSTODIAL)
+    userStore.addAddress(TESTINGUSERNAME, TESTINGADDRESS)
+    recs = userStore.client.getRecord(
+        {'userIdentifier': userIdentifier},
+        db=userStore.databaseName, 
+        collection=userStore.collectionName
+    )
+    assert(recs[0]['address'] == TESTINGADDRESS)
+
     
 def test_add_new_assets(store, assetStore, assets, itemTypes):
     killDB(store)

@@ -68,6 +68,19 @@ class AssetStore():
             return "NO ASSET"
         return recs[0]['assetIdentifier']
     
+    def getAssetFromIdentifier(self, assetId):
+        recs = self.client.getRecord(
+            {
+                'assetIdentifier': assetId
+            }, 
+            db=self.databaseName, 
+            collection=self.collectionName
+        )
+        if len(recs) == 0:
+            return "NO ASSET"
+        return recs[0]
+        return 
+    
 
     # Registering assets
     def addAssets(self, customerIdentifier, assetAddresses, itemTypes):
@@ -82,7 +95,7 @@ class AssetStore():
         for i in range(0, len(assetAddresses)):
             recs = self.client.getRecord(
                 {
-                    'assetAddress': assetAddresses[i]
+                    'assetAddress': web3.Web3.toChecksumAddress(assetAddresses[i])
                 }, 
                 db=self.databaseName, 
                 collection=self.collectionName
@@ -93,7 +106,7 @@ class AssetStore():
             obj = {
                 'assetIdentifier': f'{self.assetIDPrefix}{self.nextAssetIdentifier}',
                 'customerIdentifier': customerIdentifier,
-                'assetAddress': assetAddresses[i],
+                'assetAddress': web3.Web3.toChecksumAddress(assetAddresses[i]),
                 'itemType': itemTypes[i]
             }
             res.append(obj)

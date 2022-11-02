@@ -76,6 +76,18 @@ class UserStore():
         return recs[0]['userIdentifier']
     
     def getUserAssets(self, username):
+        """
+        returns:
+            {
+                'ASS1': {
+                    'amount': 1000
+                    }, 
+                'ASS2': 
+                    {
+                        'ids': [0], 
+                        'amount': 1
+                }}
+        """
         recs = self.client.getRecord(
             {
                 'username': username
@@ -88,6 +100,29 @@ class UserStore():
             return "NO USER"
 
         return recs[0]['assets']
+    
+    def addAddress(self, username, address):
+        userId = self.getUserId(username)
+        res = self.client.updateRecord(
+            {
+                'userIdentifier': userId
+            },
+            {'address': web3.Web3.toChecksumAddress(address)},
+            db=self.databaseName,
+            collection=self.collectionName
+        )
+
+    def getUserAddress(self, username):
+        userId = self.getUserId(username)
+        res = self.client.getRecord(
+            {
+                'userIdentifier': userId
+            },
+            db=self.databaseName,
+            collection=self.collectionName
+        )[0]
+        return res['address']
+
 
     # Registering assets
     def addUser(self, username, custodial=True, address=CUSTODIAL, assets=None):
