@@ -1,8 +1,36 @@
-# Custodial Game Assets
+![Current-Banner](img/Twitter-header.png "CurrentSDK-banner")
 
-#### By Eucliss
+# Current
+## GameFi infrastructure for augmenting Web2 games with decentralized Web3 asset ownership
 
-## WARNING: THIS WAS HACKED TOGETHER AND THE CODE SHOWS IT
+---------------------------------------------------------------
+
+  ### By Eucliss 
+
+[![Twitter URL](https://img.shields.io/twitter/url/https/twitter.com/Current_GameFi.svg?style=social&label=Follow%20%40Current_GameFi)](https://twitter.com/Current_GameFi)
+[![Foundry][foundry-badge]][foundry]
+[foundry]: https://getfoundry.sh/
+[foundry-badge]: https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg
+
+## Description
+
+The goal of the Current project is to bridge the gap between Web2 games and Web3. Our vision is to have open access to web3 for users and developers regardless of their comfort level with web3. We aim to be a full custodial software solution for developing and using web3 without any of the hassle of onboarding. For the purposes of the Chainlink Hackathon, we built an end demo of how a user, customer, and developer would utilize Current to build a game that rewarded the user with blockchain assets.
+
+## High level overview
+
+The CurrentSDK is designed to integrate with any Web2 game that implements items. For instance: Fortnite or Call of Duty skins. The game developers can continue their normal workflows of rewarding players with items in their games, the only difference is they need to make a few simple calls to the Current SDK to deliver those items to the users over the blockchain. The users will then have the option to export those assets to their own non-custodial wallet if they'd like.
+
+In this diagram you can see Chainlink at the bottom. Chainlink is responsible for our custom on-chain billing infrastructure. As the SDK executes transactions for the game and users, the game (customer) who is responsible for those transactions gets billed on-chain. Chainlink then executes automations through the Chianlink DON to bill the customers in a decentralized trustless manner.
+
+![CurrentSDK-easy](img/Current-Easy-diagram.drawio.png "CurrentSDK-easy")
+## Chainlink Hackathon Architecture
+
+For the Chainlink hackathon we extended the above diagram to be specific to a discord app (mock game) we created. The app is extremely simple - it lets you "roll" a dice and recieve rewards. The idea is that this is an overly simplified reward system for a Web2 game not connected to the blockchain. The discord app does not directly touch the chain, that is all handled in the SDK. The app only interacts with the SDK and the database (see for yourself in bot.py). The app allows you to register your discord as user, then roll the dice to get rewards - this is all handled in a custodial manner. If you want to change your account from custodial to non-custodial, its just one command away (!setAddress), then you can !export your assets to your own address or hold them in the custodial address. This obfuscates all the unnecessary interactions and transactions from the user, its all in CurrentSDK.
+
+We use chainlink here to bill the customer who deployed the game and connected it to SDK, so we automatically determine how much they owe us for the usage, and use the Chainlink DON to keep our billing decentralized and trustless.
+
+![CurrentSDK](/img/Current-CurrentSDK.drawio.png "CurrentSDK")
+
 
 ## Purpose
 

@@ -185,17 +185,11 @@ async def chainBalance(ctx: commands.Context):
     if addr == coord.custodialAddress:
         await ctx.send(f'Your account is still custodial, please execute !setAddress <your address> and !export to export your assets.')
     else:
-        print("**********************")
-        print(addr)
-        print(CONFIG['erc20']['address'])
         tokenAmount = coord.connector.getUserBalance(
             addr,
             CONFIG['erc20']['address'], 
             "GameERC20"
         )
-        print("**********************")
-        print(addr)
-        print(CONFIG['erc721']['address'])
         nftAmount = coord.connector.getUserBalance(
             addr,
             CONFIG['erc721']['address'], 
