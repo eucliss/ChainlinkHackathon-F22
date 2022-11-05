@@ -20,16 +20,8 @@ The goal of the Current project is to bridge the gap between Web2 games and Web3
 
 ## Elevator Pitch
 
-Current is a software layer for game developers to provide web3 assets to users in web2 games without any of the overhead around blockchain access and transactions - call it hybrid custodial.
+Current is a hybrid-custodial software integration layer for web2 games to provide and reward their users with web3 assets without any of the overhead of connecting and transacting with blockchains.
 
-Current is a GameFi infrastructure protocol which facilitates the onboarding of web2 native games to web3 blockchains through an SDK for development and an optional custodial service for the users.
-
-
-Current is a GameFi infrastructure protocol which facilitates the onboarding of web2 native games to web3 decentralized blockchains through a full fleshed SDK for development, and an optional custodial wallet solution for the users.
-
-. Current gives developers and users access to blockchain assets without requiring non-custodial wallet or even in-game transactions. CurrentSDK handles all blockchain connections and custodial ownership of assets.
-
-Current gives game developers the ability to obfuscate all blockchain transactions and necessities from their users to provide a seemless gaming experience. Current provides a custodial wallet solution and decentralized registration contracts to allow a customer to distribute on-chain assets to their users without requiring a non-custodial wallet or even in-game transactions. CurrentSDK allows game developers to build without touching the chain.
 
 ## High level overview
 
@@ -45,6 +37,18 @@ For the Chainlink hackathon we extended the above diagram to be specific to a di
 We use chainlink here to bill the customer who deployed the game and connected it to SDK, so we automatically determine how much they owe us for the usage, and use the Chainlink DON to keep our billing decentralized and trustless.
 
 ![CurrentSDK](/img/Current-CurrentSDK.drawio.png "CurrentSDK")
+
+## How to run this code
+
+There are 3 things that need to be run to use this code locally and in discord.
+
+1. ANVIL (for local blockchain)
+2. MongoDB (for SDK)
+3. Discord bot (for the bot)
+
+but first, initializing the repo.
+
+### Initialization
 
 
 ## Purpose

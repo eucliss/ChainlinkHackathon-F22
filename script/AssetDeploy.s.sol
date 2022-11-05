@@ -3,11 +3,10 @@ pragma solidity ^0.8.7;
 
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
-import "./HelperConfig.sol";
 import "../src/assets/CurrentToken.sol";
 import "../src/assets/CurrentNFT.sol";
 
-contract AssetDeploy is Script, HelperConfig {
+contract DeployAsset is Script {
 
     function toString(address account) public pure returns(string memory) {
         return toString(abi.encodePacked(account));
@@ -35,17 +34,18 @@ contract AssetDeploy is Script, HelperConfig {
     }
 
     function run() external {
-        HelperConfig helperConfig = new HelperConfig();
-
         vm.startBroadcast();
 
         address token = address(new CurrentToken());
         address nft = address(new CurrentNFT());
 
-
         vm.stopBroadcast();
         // Idea here is we need to put the contract location in the env
         string memory resToken = string.concat("TOKEN=", toString(token));
         string memory resNFT = string.concat("NFT=", toString(nft));
+        console.log("---------------- ASSETS ----------------");
+        console.log(resToken);
+        console.log(resNFT);
+        console.log("----------------------------------------");
     }
 }

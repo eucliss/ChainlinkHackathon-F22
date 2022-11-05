@@ -64,7 +64,32 @@ contract CoordinatorTest is Helpers {
 
         assertEq(fees, 0);
         assertTrue(eligible);
+    }
 
+    function testWithdraw() public {
+        coord = new Coordinator(REGISTRAR);
+        vm.deal(address(coord), 1 ether);
+        assertEq(address(coord).balance, 1 ether);
+        uint256 bal = REGISTRAR.balance;
+        vm.prank(REGISTRAR);
+        coord.withdraw();
+        assertEq(REGISTRAR.balance, bal + 1 ether);
+        assertEq(address(coord).balance, 0);
+    }
+
+    function testSetOwner() public {
+        coord = new Coordinator(REGISTRAR);
+        vm.prank(bob);
+        vm.expectRevert(
+            "Not the owner"
+        );
+        coord.setOwner(bob);
+        assertEq(coord.OWNER(), REGISTRAR);
+
+        vm.prank(REGISTRAR);
+        coord.setOwner(bob);
+        assertEq(coord.OWNER(), bob);
+        
     }
 
     function testAddFeesToCustomer() public {
