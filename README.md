@@ -50,6 +50,15 @@ but first, initializing the repo.
 
 ### Initialization
 
+First clone the repo
+`git clone git@github.com:eucliss/ChainlinkHackathon-F22.git`
+
+Then run the make commands to initalize the repo, this does a few things:
+  - forge clean
+  - removes all modules and libs
+  - installs dependencies
+  - updates forge
+`make all`
 
 ## Purpose
 
