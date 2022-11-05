@@ -3,11 +3,11 @@ pragma solidity >=0.8.0;
 
 import {ERC20} from "@solmate/tokens/ERC20.sol";
 
-contract GameERC20 is ERC20 {
+contract CurrentToken is ERC20 {
     uint256 public constant INITIAL_SUPPLY = 1000000000000000000000000;
     uint8 public constant DECIMALS = 18;
 
-    constructor() ERC20("GameERC20", "M20", DECIMALS) {
+    constructor() ERC20("CurrentToken", "CT", DECIMALS) {
         _mint(msg.sender, INITIAL_SUPPLY);
     }
 

@@ -6,7 +6,11 @@ import "forge-std/console.sol";
 import "./HelperConfig.sol";
 import "../src/Coordinator.sol";
 
-contract DeployCoordinator is Script, HelperConfig {
+contract DeployCoordinator is Script {
+
+    // SET THIS BEFORE DEPLOY
+    address public immutable REGISTRAR = address(0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65);
+
 
     function toString(address account) public pure returns(string memory) {
         return toString(abi.encodePacked(account));
@@ -38,10 +42,14 @@ contract DeployCoordinator is Script, HelperConfig {
 
         vm.startBroadcast();
 
-        address coord = address(new Coordinator());
+        address coord = address(new Coordinator(REGISTRAR));
 
         vm.stopBroadcast();
         // Idea here is we need to put the contract location in the env
         string memory res =string.concat("COORDINATORADDRESS=", toString(coord));
+
+        console.log("---------------- COORDINATOR ----------------");
+        console.log(res);
+        console.log("----------------------------------------");
     }
 }

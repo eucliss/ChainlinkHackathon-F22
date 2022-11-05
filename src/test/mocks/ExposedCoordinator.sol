@@ -8,7 +8,6 @@ import "../utils/Helpers.sol";
 
 interface IExposedCoordinator {
 
-
     function mintAssets(
         PackageItem[] calldata packages,
         address[] calldata recipients
@@ -16,9 +15,7 @@ interface IExposedCoordinator {
 
 }
 
-
-
-contract ExposedCoordinator is Coordinator {
+contract ExposedCoordinator is Coordinator(address(0xb0b0b0b0b)) {
     
     function bill(address customer) public {
         _billCustomer(customer);

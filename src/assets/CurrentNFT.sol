@@ -3,11 +3,11 @@ pragma solidity >=0.8.14;
 
 import {ERC721} from "@solmate/tokens/ERC721.sol";
 
-contract GameERC721 is ERC721 {
+contract CurrentNFT is ERC721 {
     
     uint256 public nextTokenId = 0;
 
-    constructor() ERC721("GameNFT", "NFT") {}
+    constructor() ERC721("CurrentNFT", "CURR") {}
 
     modifier validTokenId(uint256 tokenId) {
         require(tokenId == nextTokenId, "Token ID incorrect.");

@@ -73,11 +73,11 @@ async def init(ctx: commands.Context):
     customerId = 'CUST1'
     print(f'Registered a new customer: {customerId}, {invoiceAddr}')
 
-    success, erc20, _, _ = coord.connector.deployContract('GameERC20')
+    success, erc20, _, _ = coord.connector.deployContract('CurrentToken')
     if not success:
         await ctx.send(f'Failed to deploy ERC20 contract')    
     print(f'Successfully deployed ERC20: {erc20}')
-    success, erc721, _, _ = coord.connector.deployContract('GameERC721')
+    success, erc721, _, _ = coord.connector.deployContract('CurrentNFT')
     if not success:
         await ctx.send(f'Failed to deploy ERC721 contract')    
     print(f'Successfully deployed ERC721: {erc721}')
@@ -139,8 +139,8 @@ async def balance(ctx: commands.Context):
 @bot.command()
 async def checkChain(ctx: commands.Context):
     print(f'Getting custodial balances')
-    tokenAmount = coord.connector.getCustodialBalance(CONFIG['erc20']['address'], "GameERC20")
-    nftAmount = coord.connector.getCustodialBalance(CONFIG['erc721']['address'], "GameERC721")
+    tokenAmount = coord.connector.getCustodialBalance(CONFIG['erc20']['address'], "CurrentToken")
+    nftAmount = coord.connector.getCustodialBalance(CONFIG['erc721']['address'], "CurrentNFT")
     await ctx.send(f'The custodial wallet has {tokenAmount} Tokens (ERC20)')
     await ctx.send(f'The custodial wallet has {nftAmount} NFTs (ERC721)')
 
@@ -188,12 +188,12 @@ async def chainBalance(ctx: commands.Context):
         tokenAmount = coord.connector.getUserBalance(
             addr,
             CONFIG['erc20']['address'], 
-            "GameERC20"
+            "CurrentToken"
         )
         nftAmount = coord.connector.getUserBalance(
             addr,
             CONFIG['erc721']['address'], 
-            "GameERC721"
+            "CurrentNFT"
         )
         await ctx.send(f'You own {tokenAmount} Tokens (ERC20)')
         await ctx.send(f'You own {nftAmount} NFTs (ERC721)')

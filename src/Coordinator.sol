@@ -6,20 +6,21 @@ import "./lib/StructsAndEnums.sol";
 import "@std/Test.sol";
 import { ICustomer, Customer } from "./utils/Customer.sol";
 import {Clones} from "@oz/proxy/Clones.sol";
-
-interface IERC20 {
-    function mint(address to, uint256 amount) external returns(bool);
-}
-interface IERC721 {
-    function mint(address to, uint256 identifier) external returns(bool);
-}
+import {SafeTransferLib} from "@solmate/utils/SafeTransferLib.sol";
 
 
 
+/**
+ * @title Coordinator
+ * @author waint.eth
+ * @notice This contract is the Customer contract for the CurrentSDK Coordinator. New customers
+ *      are registered and it creates a clone of this contract. This contract allows a customer
+ *      to fund through the deposit function, and allows the Coordinator to bill them through
+ *      the bill function for their usage on Coordinator or in the SDK. Customers must fund
+ *      this contract in order to use the Coordinator and the functionality in the SDK. 
+ */
 contract Coordinator is KeeperCompatibleInterface {
-    // using SafeTransferLib for ERC20;
-    // using SafeTransferLib for address;
-    // nextBillTime: (block.timestamp + 1 weeks),
+    using SafeTransferLib for address;
 
     event GameRegistered(address invoiceAddress, uint256 contracts);
     event CustomerRegistered(address customer, address controller);
@@ -33,7 +34,18 @@ contract Coordinator is KeeperCompatibleInterface {
         address[] recipients
     );
 
+    event Withdraw(
+        address withdrawAddress,
+        uint256 amount
+    );
+
+    event OwnerChange(
+        address newOwner
+    );
+
     address public immutable customerLogic;
+    address public immutable REGISTRAR;
+    address payable public OWNER;
     uint256 public initialDeposit = 0.1 ether;
 
     address[] public paymentsDue;
@@ -49,13 +61,11 @@ contract Coordinator is KeeperCompatibleInterface {
         _;
     }
 
-    constructor() {
+    constructor(address _registrar) {
         customerLogic = address(new Customer(address(this)));
+        REGISTRAR = _registrar;
+        OWNER = payable(_registrar);
     }
-
-    receive() external payable {}
-
-    fallback() external payable {}
 
     // Note: For clone reasoning
     // May need to setup an invoice contract type
@@ -294,57 +304,39 @@ contract Coordinator is KeeperCompatibleInterface {
         }
     }
 
+    function addFeesToCustomer(address customer, uint256 amount) external {
+        require(msg.sender == REGISTRAR, "Not the registrar calling.");
+        if(customers[customer].setToBill == false){
+            customers[customer].setToBill = true;
+            paymentsDue.push(customer);
+        }
+        customers[customer].feesDue += amount;
+    }
+
     function getEncodedRequiredBills() public view returns(bytes memory) {
         return abi.encode(paymentsDue);
     }
+
+    function setOwner(address payable newOwner) public {
+        require(msg.sender == OWNER, "Not the owner");
+        OWNER = newOwner;
+        emit OwnerChange(OWNER);
+
+    }
+
+    function withdraw() public {
+        emit Withdraw(OWNER, address(this).balance);
+        address(OWNER).safeTransferETH(address(this).balance);
+    } 
+
+    receive() external payable {}
+
+    fallback() external payable {}
 }
 
-
-    // function registerGame(
-    //     address payable invoiceAddress, // Address to bill for contract execution
-    //     address gameContract, // Overarching game contract if there is one (not sure why)
-    //     address assetController, // Address of who controlls the asset, call gate (??)
-    //     address[] calldata assetContractAddresses, // Addresses of your Asset contracts
-    //     ItemType[] calldata assetContractItemTypes // ItemTypes of your Asset contracts
-    // ) public {
-    //     // Registers a customer (game)
-    //     // Customers add their payable address for billing
-    //     // Game address if they have an onchain game
-    //     // Adds their game asset contracts, we'll enforce ownership
-    //     // eventually through ZK proofs onchain
-    //     require(
-    //         customers[invoiceAddress].eligible == false,
-    //         "Invoice Address already registered."
-    //     );
-
-    //     require(
-    //         assetContractAddresses.length == assetContractItemTypes.length,
-    //         "Mismatch in asset addresses and itemtypes"
-    //     );
-
-    //     //ToDo: Add details to storage mapping
-    //     // Set the customers mapping with the invoice struct
-    //     customers[invoiceAddress] = CustomerStruct({
-    //         feesDue: 0, // 0 fees due to start
-    //         gameContract: gameContract, 
-    //         eligible: true,
-    //         setToBill: false, // (???)
-    //         assetContracts: assetContractAddresses
-    //     });
-
-    //     uint256 ctLength = assetContractAddresses.length;
-    //     for (uint256 i = 0; i < ctLength; i++) {
-    //         require(!assets[assetContractAddresses[i]].eligible, "Asset already registered.");
-    //         // Add each contract to assets map
-    //         assets[assetContractAddresses[i]] = AssetContract({
-    //             customer: invoiceAddress, // Who gets billed
-    //             executor: assetController, // Who controlls
-    //             itemType: assetCexontractItemTypes[i], // What asset type
-    //             eligible: true
-    //         });
-    //     }
-
-    //     emit GameRegistered(invoiceAddress, ctLength);
-
-    //     // Need to test all this shit
-    // }
+interface IERC20 {
+    function mint(address to, uint256 amount) external returns(bool);
+}
+interface IERC721 {
+    function mint(address to, uint256 identifier) external returns(bool);
+}

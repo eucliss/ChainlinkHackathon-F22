@@ -3,21 +3,21 @@ pragma solidity ^0.8.14;
 import "ds-test/test.sol";
 import {Vm} from "@std/Vm.sol";
 
-import {GameERC20} from "../assets/GameERC20.sol";
-import {GameERC721} from "../assets/GameERC721.sol";
+import {CurrentToken} from "../assets/CurrentToken.sol";
+import {CurrentNFT} from "../assets/CurrentNFT.sol";
 import {GameERC1155} from "../assets/GameERC1155.sol";
 
 contract ContractTest is DSTest {
-    GameERC20 public token;
-    GameERC721 public nft;
+    CurrentToken public token;
+    CurrentNFT public nft;
     GameERC1155 public multiToken;
     Vm cheats = Vm(HEVM_ADDRESS);
     address immutable god = address(0xdead);
 
     function setUp() public {
         cheats.startPrank(god);
-        token = new GameERC20();
-        nft = new GameERC721();
+        token = new CurrentToken();
+        nft = new CurrentNFT();
         multiToken = new GameERC1155();
         cheats.stopPrank();
     }
