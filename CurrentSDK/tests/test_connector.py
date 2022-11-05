@@ -19,8 +19,8 @@ ItemTypes = {
     'NONE': 4
 }
 
-GAMEERC20 = 'GameERC20'
-GAMEERC721 = 'GameERC721'
+CurrentToken = 'CurrentToken'
+CurrentNFT = 'CurrentNFT'
 
 addresses = dotenv_values("../.env.addresses")
 
@@ -36,7 +36,7 @@ def test_attach(connector):
     assert 'performUpkeep' in res.functions
 
 def test_deployContract(connector):
-    success, addr, abi, game = connector.deployContract(GAMEERC20)
+    success, addr, abi, game = connector.deployContract(CurrentToken)
     assert(success)
     assert(addr != "")
     assert('mint' in game.functions)
@@ -44,35 +44,35 @@ def test_deployContract(connector):
 
 def test_getCustodialBalance(connector):
     w3 = web3.Web3(web3.HTTPProvider('http://127.0.0.1:8545'))
-    _, addr, _, _ = connector.deployContract("GameERC20")
-    val = connector.getCustodialBalance(addr, "GameERC20")
+    _, addr, _, _ = connector.deployContract("CurrentToken")
+    val = connector.getCustodialBalance(addr, "CurrentToken")
     assert(val == 0)
 
-    abi, _ = connector.getAbi("GameERC20")
+    abi, _ = connector.getAbi("CurrentToken")
     contract = w3.eth.contract(address=addr, abi=abi)
     tx_hash = contract.functions.mint(
                 CUSTODIAL,
                 100
             ).transact({'from': CUSTODIAL})
     tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
-    val = connector.getCustodialBalance(addr, "GameERC20")
+    val = connector.getCustodialBalance(addr, "CurrentToken")
     assert(val == 100)
 
 def test_getCustodialBalance_NFT(connector):
     w3 = web3.Web3(web3.HTTPProvider('http://127.0.0.1:8545'))
-    _, addr, _, _ = connector.deployContract(GAMEERC721)
-    val = connector.getCustodialBalance(addr, GAMEERC721)
+    _, addr, _, _ = connector.deployContract(CurrentNFT)
+    val = connector.getCustodialBalance(addr, CurrentNFT)
     assert(val == 0)
 
 
-    abi, _ = connector.getAbi(GAMEERC721)
+    abi, _ = connector.getAbi(CurrentNFT)
     contract = w3.eth.contract(address=addr, abi=abi)
     tx_hash = contract.functions.mint(
                 CUSTODIAL,
                 0
             ).transact({'from': CUSTODIAL})
     tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
-    val = connector.getCustodialBalance(addr, GAMEERC721)
+    val = connector.getCustodialBalance(addr, CurrentNFT)
 
     assert(val == 1)
 

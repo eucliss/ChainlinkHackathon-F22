@@ -8,7 +8,9 @@
   ### By Eucliss 
 
 [![Twitter URL](https://img.shields.io/twitter/url/https/twitter.com/Current_GameFi.svg?style=social&label=Follow%20%40Current_GameFi)](https://twitter.com/Current_GameFi)
+
 [![Foundry][foundry-badge]][foundry]
+
 [foundry]: https://getfoundry.sh/
 [foundry-badge]: https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg
 
@@ -16,13 +18,26 @@
 
 The goal of the Current project is to bridge the gap between Web2 games and Web3. Our vision is to have open access to web3 for users and developers regardless of their comfort level with web3. We aim to be a full custodial software solution for developing and using web3 without any of the hassle of onboarding. For the purposes of the Chainlink Hackathon, we built an end demo of how a user, customer, and developer would utilize Current to build a game that rewarded the user with blockchain assets.
 
+## Elevator Pitch
+
+Current is a software layer for game developers to provide web3 assets to users in web2 games without any of the overhead around blockchain access and transactions - call it hybrid custodial.
+
+Current is a GameFi infrastructure protocol which facilitates the onboarding of web2 native games to web3 blockchains through an SDK for development and an optional custodial service for the users.
+
+
+Current is a GameFi infrastructure protocol which facilitates the onboarding of web2 native games to web3 decentralized blockchains through a full fleshed SDK for development, and an optional custodial wallet solution for the users.
+
+. Current gives developers and users access to blockchain assets without requiring non-custodial wallet or even in-game transactions. CurrentSDK handles all blockchain connections and custodial ownership of assets.
+
+Current gives game developers the ability to obfuscate all blockchain transactions and necessities from their users to provide a seemless gaming experience. Current provides a custodial wallet solution and decentralized registration contracts to allow a customer to distribute on-chain assets to their users without requiring a non-custodial wallet or even in-game transactions. CurrentSDK allows game developers to build without touching the chain.
+
 ## High level overview
 
 The CurrentSDK is designed to integrate with any Web2 game that implements items. For instance: Fortnite or Call of Duty skins. The game developers can continue their normal workflows of rewarding players with items in their games, the only difference is they need to make a few simple calls to the Current SDK to deliver those items to the users over the blockchain. The users will then have the option to export those assets to their own non-custodial wallet if they'd like.
 
 In this diagram you can see Chainlink at the bottom. Chainlink is responsible for our custom on-chain billing infrastructure. As the SDK executes transactions for the game and users, the game (customer) who is responsible for those transactions gets billed on-chain. Chainlink then executes automations through the Chianlink DON to bill the customers in a decentralized trustless manner.
 
-![CurrentSDK-easy](img/Current-Easy-diagram.drawio.png "CurrentSDK-easy")
+![CurrentSDK-easy](/img/Current-Easy-diagram.drawio.png "CurrentSDK-easy")
 ## Chainlink Hackathon Architecture
 
 For the Chainlink hackathon we extended the above diagram to be specific to a discord app (mock game) we created. The app is extremely simple - it lets you "roll" a dice and recieve rewards. The idea is that this is an overly simplified reward system for a Web2 game not connected to the blockchain. The discord app does not directly touch the chain, that is all handled in the SDK. The app only interacts with the SDK and the database (see for yourself in bot.py). The app allows you to register your discord as user, then roll the dice to get rewards - this is all handled in a custodial manner. If you want to change your account from custodial to non-custodial, its just one command away (!setAddress), then you can !export your assets to your own address or hold them in the custodial address. This obfuscates all the unnecessary interactions and transactions from the user, its all in CurrentSDK.
@@ -103,7 +118,7 @@ This is the starting point of the company Current. I plan on building out the Cu
 ----- ADMIN COMMANDS -----
 
 1. !init
-  The init function is designed to start the entire process and register the primary customer (us). The command initialized the CONFIG to a state of initialized and also deploys assets to the chain. For our game we have 2 assets: GameERC20 and GameERC721. These are simple ERC20 and ERC721 contracts that allow us to mint tokens to the users. For the purposes of this demo we're internalizing everything. In the future we will allow anyone to create a customer in our system and get billed for their usage.
+  The init function is designed to start the entire process and register the primary customer (us). The command initialized the CONFIG to a state of initialized and also deploys assets to the chain. For our game we have 2 assets: CurrentToken and CurrentNFT. These are simple ERC20 and ERC721 contracts that allow us to mint tokens to the users. For the purposes of this demo we're internalizing everything. In the future we will allow anyone to create a customer in our system and get billed for their usage.
 
 
 2. !checkChain
@@ -184,8 +199,8 @@ One thing I need to figure out is how to take care of all the minting and get th
 - lib/StructsAndEnums.sol
   - This function holds all the structs and enums that will be used.
 
-- assets/GameERC20.sol (Mock ERC20)
-- assets/GameERC721.sol (Mock ERC721)
+- assets/CurrentToken.sol (Mock ERC20)
+- assets/CurrentNFT.sol (Mock ERC721)
 - assets/GameERC1155.sol (Mock ERC1155)
 
 ### SDK

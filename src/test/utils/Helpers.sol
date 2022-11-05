@@ -7,8 +7,8 @@ import "@std/Test.sol";
 import "../utils/Cheats.sol";
 import "../mocks/ExposedCoordinator.sol";
 
-import {GameERC20} from "../../assets/GameERC20.sol";
-import {GameERC721} from "../../assets/GameERC721.sol";
+import {CurrentToken} from "../../assets/CurrentToken.sol";
+import {CurrentNFT} from "../../assets/CurrentNFT.sol";
 import {GameERC1155} from "../../assets/GameERC1155.sol";
 
 contract Helpers is Test {
@@ -23,8 +23,9 @@ contract Helpers is Test {
     address public assetController = address(0xA11CE);
     address public CUSTODIAL = address(0x420420);
     address public NONCUSTODIAL = address(0x1010101);
-    GameERC20 public tokenContract;
-    GameERC721 public skinsContract;
+    address public REGISTRAR = address(0xb0b0b0b0b);
+    CurrentToken public tokenContract;
+    CurrentNFT public skinsContract;
     GameERC1155 public consumablesContract;
 
     address public token;
@@ -45,8 +46,8 @@ contract Helpers is Test {
 
     function setUpMultiInvoiceAndRegister() public {
 
-        tokenContract = new GameERC20();
-        skinsContract = new GameERC721();
+        tokenContract = new CurrentToken();
+        skinsContract = new CurrentNFT();
         // consumablesContract = new GameERC1155();
 
         token = address(tokenContract);
@@ -74,7 +75,7 @@ contract Helpers is Test {
         packages.push(t);
         packages2.push(s);
 
-        coord = new Coordinator();
+        coord = new Coordinator(REGISTRAR);
         
         vm.deal(bob, 0.1 ether);
         vm.deal(assetController, 0.1 ether);
@@ -111,8 +112,8 @@ contract Helpers is Test {
     }
 
     function setUpExposed() public {
-        tokenContract = new GameERC20();
-        skinsContract = new GameERC721();
+        tokenContract = new CurrentToken();
+        skinsContract = new CurrentNFT();
         // consumablesContract = new GameERC1155();
 
         token = address(tokenContract);

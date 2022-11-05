@@ -34,6 +34,7 @@ contract Coordinator is KeeperCompatibleInterface {
     );
 
     address public immutable customerLogic;
+    address public immutable REGISTRAR;
     uint256 public initialDeposit = 0.1 ether;
 
     address[] public paymentsDue;
@@ -49,8 +50,9 @@ contract Coordinator is KeeperCompatibleInterface {
         _;
     }
 
-    constructor() {
+    constructor(address _registrar) {
         customerLogic = address(new Customer(address(this)));
+        REGISTRAR = _registrar;
     }
 
     receive() external payable {}
@@ -292,6 +294,15 @@ contract Coordinator is KeeperCompatibleInterface {
             // Maybe we add some logic to lock an account if its balance is too in debt
 
         }
+    }
+
+    function addFeesToCustomer(address customer, uint256 amount) external {
+        require(msg.sender == REGISTRAR, "Not the registrar calling.");
+        if(customers[customer].setToBill == false){
+            customers[customer].setToBill = true;
+            paymentsDue.push(customer);
+        }
+        customers[customer].feesDue += amount;
     }
 
     function getEncodedRequiredBills() public view returns(bytes memory) {

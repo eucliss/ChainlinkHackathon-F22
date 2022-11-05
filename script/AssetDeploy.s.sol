@@ -4,8 +4,8 @@ pragma solidity ^0.8.7;
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
 import "./HelperConfig.sol";
-import "../src/assets/GameERC20.sol";
-import "../src/assets/GameERC721.sol";
+import "../src/assets/CurrentToken.sol";
+import "../src/assets/CurrentNFT.sol";
 
 contract AssetDeploy is Script, HelperConfig {
 
@@ -39,8 +39,8 @@ contract AssetDeploy is Script, HelperConfig {
 
         vm.startBroadcast();
 
-        address token = address(new GameERC20());
-        address nft = address(new GameERC721());
+        address token = address(new CurrentToken());
+        address nft = address(new CurrentNFT());
 
 
         vm.stopBroadcast();

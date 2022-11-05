@@ -6,8 +6,8 @@ import "./utils/Helpers.sol";
 contract CoordinatorTest is Helpers {
 
     function setUp() public {
-        tokenContract = new GameERC20();
-        skinsContract = new GameERC721();
+        tokenContract = new CurrentToken();
+        skinsContract = new CurrentNFT();
         // consumablesContract = new GameERC1155();
 
         token = address(tokenContract);
@@ -32,7 +32,7 @@ contract CoordinatorTest is Helpers {
         packages.push(t);
         packages.push(s);
 
-        coord = new Coordinator();
+        coord = new Coordinator(REGISTRAR);
 
         vm.deal(bob, initEth + 0.1 ether);
         vm.prank(bob);
@@ -44,12 +44,13 @@ contract CoordinatorTest is Helpers {
     }
 
     function testConstructor() public {
-        coord = new Coordinator();
+        coord = new Coordinator(REGISTRAR);
+        assert(coord.REGISTRAR() == REGISTRAR);
         assert(coord.customerLogic() != address(0));
     }
 
     function testRegisterCustomer() public {
-        coord = new Coordinator();
+        coord = new Coordinator(REGISTRAR);
         vm.prank(bob);
         address customer = coord.registerCustomer{value: 0.1 ether}(bob);
         assert(customer != address(0));
@@ -66,11 +67,35 @@ contract CoordinatorTest is Helpers {
 
     }
 
+    function testAddFeesToCustomer() public {
+        coord = new Coordinator(REGISTRAR);
+        vm.prank(bob);
+        address customer = coord.registerCustomer{value: 0.1 ether}(bob);
+        (uint256 fees, , bool eligible, ) = coord.customers(
+            customer
+        );
+        assertEq(fees, 0);
+        assertTrue(eligible);
+
+        vm.prank(REGISTRAR);
+        coord.addFeesToCustomer(customer, 1 ether);
+        bool bill;
+        (fees, ,eligible, bill) = coord.customers(
+            customer
+        );
+        assertEq(fees, 1 ether);
+        assertTrue(bill);
+
+        bytes memory billsBytes = coord.getEncodedRequiredBills();
+        address[] memory billsRequired = abi.decode(billsBytes, (address[]));
+        assertEq(billsRequired.length, 1);
+    }
+
     function testRegisterAssets() public {
         // Takes a list of assets and list of item types
         // adds the assets to the asset registry
         // adds the items to the customers index
-        coord = new Coordinator();
+        coord = new Coordinator(REGISTRAR);
         vm.startPrank(bob);
         address customer = coord.registerCustomer{value: 0.1 ether}(bob);
         coord.registerAssets(

@@ -3,7 +3,6 @@ pragma solidity ^0.8.7;
 
 contract HelperConfig {
     NetworkConfig public activeNetworkConfig;
-
     struct NetworkConfig {
         address oracle;
         bytes32 jobId;

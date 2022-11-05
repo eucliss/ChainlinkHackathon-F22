@@ -57,8 +57,8 @@ def coord():
 @pytest.fixture
 def assets():
     c = Connector()
-    _, TOKEN, _, _ = c.deployContract('GameERC20')
-    _, NFT, _, _ = c.deployContract('GameERC721')
+    _, TOKEN, _, _ = c.deployContract('CurrentToken')
+    _, NFT, _, _ = c.deployContract('CurrentNFT')
     TOKEN = web3.Web3.toChecksumAddress(TOKEN)
     NFT = web3.Web3.toChecksumAddress(NFT)
     return [TOKEN, NFT]
@@ -164,10 +164,10 @@ def mintPackagesToCustodial(coord, recipients, assets, itemTypes):
     totalNFTs = [1 for item in packages if item['itemType'] == ItemTypes['ERC721']]
     for item in packages:
         if item['itemType'] == ItemTypes['ERC20']:
-            amt = coord.connector.getCustodialBalance(item['token'],'GameERC20')
+            amt = coord.connector.getCustodialBalance(item['token'],'CurrentToken')
             assert(amt == item['amount'])
         if item['itemType'] == ItemTypes['ERC721']:
-            amt = coord.connector.getCustodialBalance(item['token'],'GameERC721')
+            amt = coord.connector.getCustodialBalance(item['token'],'CurrentNFT')
             assert(amt == len(totalNFTs))
     return packages, recipients
 
@@ -234,10 +234,10 @@ def test_transfer_packages(coord, recipients, assets, itemTypes):
     totalNFTs = [1 for item in packages if item['itemType'] == ItemTypes['ERC721']]
     for item in packages:
         if item['itemType'] == ItemTypes['ERC20']:
-            amt = coord.connector.getUserBalance(recipients[0], item['token'],'GameERC20')
+            amt = coord.connector.getUserBalance(recipients[0], item['token'],'CurrentToken')
             assert(amt == item['amount'])
         if item['itemType'] == ItemTypes['ERC721']:
-            amt = coord.connector.getUserBalance(recipients[0], item['token'],'GameERC721')
+            amt = coord.connector.getUserBalance(recipients[0], item['token'],'CurrentNFT')
             assert(amt == len(totalNFTs))
 
     
@@ -407,8 +407,8 @@ def test_export_assets(coord, recipients, assets, itemTypes):
         {'address': recipients[0]['address']}
     )[0]
     assert(user['username'] == usernames[0])
-    tokenBalance = coord.connector.getCustodialBalance(assets[0], "GameERC20")
-    nftBalance = coord.connector.getCustodialBalance(assets[1], "GameERC721")
+    tokenBalance = coord.connector.getCustodialBalance(assets[0], "CurrentToken")
+    nftBalance = coord.connector.getCustodialBalance(assets[1], "CurrentNFT")
     assert(tokenBalance == packages[0]['amount'])
     assert(nftBalance == packages[1]['amount'])
 
@@ -418,13 +418,13 @@ def test_export_assets(coord, recipients, assets, itemTypes):
     assert(resObj['address'] == recipients[0]['address'])
     assert(resObj['assets'] == packages)
     
-    tokenBalance = coord.connector.getCustodialBalance(assets[0], "GameERC20")
-    nftBalance = coord.connector.getCustodialBalance(assets[1], "GameERC721")
+    tokenBalance = coord.connector.getCustodialBalance(assets[0], "CurrentToken")
+    nftBalance = coord.connector.getCustodialBalance(assets[1], "CurrentNFT")
     assert(tokenBalance == 0)
     assert(nftBalance == 0)
 
-    tokenBalance = coord.connector.getUserBalance(recipients[0]['address'], assets[0], "GameERC20")
-    nftBalance = coord.connector.getUserBalance(recipients[0]['address'], assets[1], "GameERC721")
+    tokenBalance = coord.connector.getUserBalance(recipients[0]['address'], assets[0], "CurrentToken")
+    nftBalance = coord.connector.getUserBalance(recipients[0]['address'], assets[1], "CurrentNFT")
     assert(tokenBalance == packages[0]['amount'])
     assert(nftBalance == packages[1]['amount'])
 
