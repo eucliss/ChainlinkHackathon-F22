@@ -22,6 +22,8 @@ build:; forge build
 
 test :; forge test -vv
 
+test-gas :; forge test -vv --gas-report
+
 pytest :; pytest -s
 
 snapshot :; forge snapshot
@@ -47,8 +49,9 @@ deploy-local :;
 	@forge script script/AssetDeploy.s.sol:DeployAsset --rpc-url ${local-network}  --private-key ${local-customer} --broadcast 
 
 deploy-goerli :;
-	@forge script script/CoordinatorDeploy.s.sol:DeployCoordinator --rpc-url ${GOERLI_RPC_URL}  --private-key ${DEPLOYERPK} --broadcast 
-	@forge script script/AssetDeploy.s.sol:DeployAsset --rpc-url ${GOERLI_RPC_URL}  --private-key ${CUSTOMERPK} --broadcast 
+	@forge script script/CoordinatorDeploy.s.sol:DeployCoordinator --rpc-url ${GOERLI_RPC_URL}  --private-key ${DEPLOYERPK} --broadcast --verify --etherscan-api-key ${ETHERSCAN_API_KEY}  -vvvv	
+
+#@forge script script/AssetDeploy.s.sol:DeployAsset --rpc-url ${GOERLI_RPC_URL}  --private-key ${CUSTOMERPK} --broadcast 
 
 
 deploy-all :; make deploy-${network} contract=APIConsumer && make deploy-${network} contract=KeepersCounter && make deploy-${network} contract=PriceFeedConsumer && make deploy-${network} contract=VRFConsumerV2

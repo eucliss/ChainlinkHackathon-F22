@@ -7,12 +7,17 @@ from db import MongoDB
 from connector import Connector
 from decimal import Decimal
 
-
-
 load_dotenv()
 
 token = os.getenv('INFURA_KEY')
-addresses = dotenv_values("../.env.addresses")
+STAGE = os.getenv('STAGE')
+addresses = ''
+if STAGE == 'dev':
+    PROVIDER = os.getenv('LOCAL_RPC')
+    addresses = addresses = dotenv_values("../.env.addresses")
+if STAGE == 'goerli':
+    PROVIDER = os.getenv('GOERLI_RPC_URL')
+    addresses = dotenv_values("../.env.goerli.addresses")
 
 COORDABI = "../out/Coordinator.sol/Coordinator.json"
 COORDADDRESS = web3.Web3.toChecksumAddress(addresses['COORDINATORADDRESS'])

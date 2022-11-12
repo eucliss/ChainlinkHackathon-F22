@@ -3,57 +3,80 @@ pragma solidity ^0.8.14;
 
 import "@chainlink/contracts/src/v0.8/interfaces/KeeperCompatibleInterface.sol";
 import "./lib/StructsAndEnums.sol";
-import "@std/Test.sol";
-import { ICustomer, Customer } from "./utils/Customer.sol";
+import {ICustomer, Customer} from "./utils/Customer.sol";
 import {Clones} from "@oz/proxy/Clones.sol";
 import {SafeTransferLib} from "@solmate/utils/SafeTransferLib.sol";
-
-
 
 /**
  * @title Coordinator
  * @author waint.eth
- * @notice This contract is the Customer contract for the CurrentSDK Coordinator. New customers
- *      are registered and it creates a clone of this contract. This contract allows a customer
- *      to fund through the deposit function, and allows the Coordinator to bill them through
- *      the bill function for their usage on Coordinator or in the SDK. Customers must fund
- *      this contract in order to use the Coordinator and the functionality in the SDK. 
+ * @notice This is the Coordinator for the CurrentSDK. What this contract allows you to do
+ *      is register yourself as a customer and add assets to your customer profile. When you
+ *      register as a customer a new Customer.sol contract is created and you must deposit
+ *      funds into that. The coordinator can then be executed to mint and deliver assets
+ *      to your users wallets from the SDK. The function will then add balance to your fees
+ *      and automatically withdraw funds from your customer contract via the Bill method.
+ *      Essentially what we're doing is obfuscating what would be user required transactions
+ *      to your customer profile so we can provide a seemless experience for the end user and
+ *      cover the costs of your transactions through your Customer contract.
  */
 contract Coordinator is KeeperCompatibleInterface {
     using SafeTransferLib for address;
 
-    event GameRegistered(address invoiceAddress, uint256 contracts);
+    // Event: New customer is registered
     event CustomerRegistered(address customer, address controller);
+
+    // Event: Assets are added to a customer profile.
     event AddedAssetsToCustomer(
-        address customer, 
-        address[] additionalContracts, 
+        address customer,
+        address[] additionalContracts,
         address[] updatedContracts
     );
-    event MintedAssets(
-        PackageItem[] packages,
-        address[] recipients
-    );
+    
+    // Event: Adding fees to a customer.
+    event AddedFeesToCustomer(address customer, uint256 amount);
 
-    event Withdraw(
-        address withdrawAddress,
-        uint256 amount
-    );
+    // Assets are minted to recipients
+    event MintedAssets(PackageItem[] packages, address[] recipients);
 
-    event OwnerChange(
-        address newOwner
-    );
+    // Funds are withdrawn from this contract
+    event Withdraw(address withdrawAddress, uint256 amount);
 
+    // The owner of this contract has changed
+    event OwnerChange(address newOwner);
+
+    // Address for the customer logic
     address public immutable customerLogic;
+
+    // CurrentSDK Registrar address
     address public immutable REGISTRAR;
+
+    // Owner for withdrawing funds
     address payable public OWNER;
+
+    // Required deposit for customers
     uint256 public initialDeposit = 0.1 ether;
 
+    // List of which customers have outstanding debt
     address[] public paymentsDue;
 
+    // Mapping of customers
     mapping(address => CustomerStruct) public customers;
+
+    // Mapping of assets
     mapping(address => AssetContract) public assets;
 
-    modifier equalAssetsAndTypes(address[] calldata assetContracts, ItemType[] calldata itemTypes) {
+    /**
+     * @notice Confirms equal length of assets and itemtypes
+     *
+     * @param assetContracts Array of asset contract addresses
+     * @param itemTypes Array of itemtypes to assign to asset contracts
+     *
+     */
+    modifier equalAssetsAndTypes(
+        address[] calldata assetContracts,
+        ItemType[] calldata itemTypes
+    ) {
         require(
             assetContracts.length == itemTypes.length,
             "Missatch in asset addresses and itemtypes"
@@ -61,29 +84,37 @@ contract Coordinator is KeeperCompatibleInterface {
         _;
     }
 
+    /**
+     * @notice Constructor, sets the customerLogic, REGISTRAR, and OWNER
+     *
+     * @param _registrar Address of the CurrentSDK REGISTRAR
+     *
+     */
     constructor(address _registrar) {
         customerLogic = address(new Customer(address(this)));
         REGISTRAR = _registrar;
         OWNER = payable(_registrar);
     }
 
-    // Note: For clone reasoning
-    // May need to setup an invoice contract type
-    // Where the user registers an invoice contract
-    // Then pre-loads it with ethereum
-    // The bill customer will then attempt to bill the invoice address
-    // We can build like a clone factory for those invoiced wallets
-    // Will only have 2 functions
-    // Bill, deposit (later on we can add more for ERC20 payments, etc.)
-    // But for now just eth is good
+    /**
+     * @notice Registers a new customer. This function creates a cloned
+     *      customer contract and pre-loads 0.1ether in it. This is to ensure
+     *      funds for initial contract calls.
+     *
+     * @param assetController Controller address for the customer assets.
+     *
+     */
+    function registerCustomer(address assetController)
+        public
+        payable
+        returns (address customer)
+    {
+        require(
+            msg.value >= initialDeposit,
+            "Incorrect msg.value, send >0.1 ether"
+        );
 
-    // Register a customer
-    // This creates a cloned customerLogic which will become their billing address
-    function registerCustomer(
-        address assetController
-    ) public payable returns(address customer) {
-        require(msg.value >= initialDeposit, "Incorrect msg.value, send >0.1 ether");
-        
+        // Clone the customer contract and initialize with assetController
         customer = Clones.clone(customerLogic);
         ICustomer(customer).initialize(assetController);
 
@@ -95,122 +126,202 @@ contract Coordinator is KeeperCompatibleInterface {
         emit CustomerRegistered(customer, assetController);
     }
 
-    // TODO: Security concerns, require owner from Customer contract adding to invoice addr;
-    //  require assets not already eligible
-    //  require customer invoice isnt locked
-    // Register an array of assets to your customer address
+    /**
+     * @notice Register assets to a customer. When assets are registered, each time
+     *      a function interacts with them, the Customer contract will be billed accordingly.
+     *
+     * @param assetController Controller address for the customer assets.
+     * @param customerInvoice Customer invoice address to add the assets to.
+     * @param assetContractAddresses Addresses of your Asset contracts
+     * @param assetContractItemTypes ItemTypes of your Asset contracts
+     *
+     */
     function registerAssets(
         address assetController,
         address customerInvoice,
-        address[] calldata assetContractAddresses, // Addresses of your Asset contracts
-        ItemType[] calldata assetContractItemTypes // ItemTypes of your Asset contracts
-    ) 
-        public 
-        payable 
-        equalAssetsAndTypes(assetContractAddresses, assetContractItemTypes) 
+        address[] calldata assetContractAddresses,
+        ItemType[] calldata assetContractItemTypes
+    )
+        public
+        payable
+        equalAssetsAndTypes(assetContractAddresses, assetContractItemTypes)
     {
-        // Check validity
-        require(ICustomer(customerInvoice).getOwner() == msg.sender, "Not Invoice Owner");
-        require(customers[customerInvoice].eligible, "Customer Invoice is not eligible.");
+        // Check validity, must be owner and eligible to add assets
+        require(
+            ICustomer(customerInvoice).getOwner() == msg.sender,
+            "Not Invoice Owner"
+        );
+        require(
+            customers[customerInvoice].eligible,
+            "Customer Invoice is not eligible."
+        );
 
-
+        // Loop through all the contracts
         uint256 len = assetContractAddresses.length;
-        for(uint8 i = 0; i < len; i++) {
-            // Add asset objects
-            require(!assets[assetContractAddresses[i]].eligible, "Asset is already registered.");
+        for (uint8 i = 0; i < len; i++) {
+            // Make sure asset isnt already registered
+            require(
+                !assets[assetContractAddresses[i]].eligible,
+                "Asset is already registered."
+            );
 
+            // Build the asset object and store it
             assets[assetContractAddresses[i]] = AssetContract({
                 customer: customerInvoice, // Who gets billed
                 executor: assetController, // Who controlls
                 itemType: assetContractItemTypes[i], // What asset type
                 eligible: true
             });
-            customers[customerInvoice].assetContracts.push(assetContractAddresses[i]);
+
+            // Set the address in the customers mapping
+            customers[customerInvoice].assetContracts.push(
+                assetContractAddresses[i]
+            );
         }
 
         emit AddedAssetsToCustomer(
-            customerInvoice, 
-            assetContractAddresses, 
+            customerInvoice,
+            assetContractAddresses,
             customers[customerInvoice].assetContracts
         );
     }
 
-    // Regiser and 
+    /**
+     * @notice Register as a new customer with assets. Combination of the above
+     *      two functions.
+     *
+     * @param assetController Controller address for the customer assets.
+     * @param assetContractAddresses Addresses of your Asset contracts
+     * @param assetContractItemTypes ItemTypes of your Asset contracts
+     *
+     */
     function registerWithAssets(
         address assetController,
-        address[] calldata assetContractAddresses, // Addresses of your Asset contracts
-        ItemType[] calldata assetContractItemTypes // ItemTypes of your Asset contracts
-    ) external payable returns(address customer) {
+        address[] calldata assetContractAddresses,
+        ItemType[] calldata assetContractItemTypes
+    ) external payable returns (address customer) {
+        // Generate new customer contract
         customer = registerCustomer(assetController);
-        registerAssets(assetController, customer, assetContractAddresses, assetContractItemTypes);
+
+        // Register the assets
+        registerAssets(
+            assetController,
+            customer,
+            assetContractAddresses,
+            assetContractItemTypes
+        );
     }
 
-    // Pretty much wondering what the best way to do this is
-    // I think the SDK needs to consider 2 cases:
-    // 1. Game developer has a single location with all assets that it is distributing
-    // 2. Game developer wants basin to deal with the full distribution and minting
-    // I think we'll need 2 functions and I think building out the mint one first
-    // is going to be my approach
+    /**
+     * @notice Distribute assets to the users.
+     *      TODO: Build this out. This requires a bit more thought than just
+     *      minting assets to a user from a defined interface, so that will
+     *      be the next step, figuring out how to distribute assets easily.
+     *
+     * @param packages PackageItem assets to mint to the users
+     * @param recipients Addresses of the users to distribute to
+     *
+     */
     function distributeAssets(
         PackageItem[] calldata packages,
         address[] calldata recipients
     ) public {}
 
-    // Mint assets 
+    /**
+     * @notice Mint the assets to the users.
+     *
+     * @param packages PackageItem assets to mint to the users
+     * @param recipients Addresses of the users to distribute to
+     *
+     */
     function mintAssets(
         PackageItem[] calldata packages,
         address[] calldata recipients
-    ) public 
-    {
+    ) public {
         uint256 packLen = packages.length;
-        require(packLen == recipients.length, "Packages and recipients mismatch.");
+        require(
+            packLen == recipients.length,
+            "Packages and recipients mismatch."
+        );
         // Loop through all the packages
-        for(uint256 i = 0; i<packLen; i++) {
+        for (uint256 i = 0; i < packLen; i++) {
             // Mint the package to the user
-            require(assets[packages[i].token].eligible, "Contract not registered.");
-            require(assets[packages[i].token].executor == msg.sender, "Not the asset executor.");
+            require(
+                assets[packages[i].token].eligible,
+                "Contract not registered."
+            );
+            require(
+                assets[packages[i].token].executor == msg.sender,
+                "Not the asset executor."
+            );
             _mintPackage(packages[i], recipients[i]);
         }
         emit MintedAssets(packages, recipients);
     }
 
-    // Mint a singular package to a singular address
-    function _mintPackage(PackageItem calldata package, address recipient) internal {
+    /**
+     * @notice Mint a single asset to a user
+     *
+     * @param package PackageItem asset to mint to the users
+     * @param recipient Addresses of the user to distribute to
+     *
+     * @dev right now this function uses a specific mint function in the CurrentNFT
+     *      and CurrentToken contracts. In the future we will allow customers to create
+     *      new contracts from this factory contract. Those contracts will have defined
+     *      functionality that we need for this. Additionally, we will build a common
+     *      interface for customers to build their own custom logic to add in.
+     *      TODO: I realized this is inside a for loop, thats wasting a ton of gas,
+     *      especially the reading of the customer from storage. Might be able to do that
+     *      outside the for loop, but have to think about potentially different assets
+     *      having different owners in the minting call.
+     */
+    function _mintPackage(PackageItem calldata package, address recipient)
+        internal
+    {
+        // Check how much gas the minting costs and add to the customer bill
         uint256 gas = gasleft();
         address assetLocation = package.token;
+
+        // TODO: More asset types, right now its limited
         // NATIVE
-        // if(packages[i].itemType == ItemType.NATIVE){
-        //     //
-        // }
+        // ERC1155
+        // NONE
 
         // ERC20
-        if(package.itemType == ItemType.ERC20){
-            bool success = IERC20(assetLocation).mint(recipient, package.amount);
+        if (package.itemType == ItemType.ERC20) {
+            bool success = IERC20(assetLocation).mint(
+                recipient,
+                package.amount
+            );
             require(success, "Mint failed");
         }
         // ERC721
-        if(package.itemType == ItemType.ERC721){
-            bool success = IERC721(assetLocation).mint(recipient, package.identifier);
+        if (package.itemType == ItemType.ERC721) {
+            bool success = IERC721(assetLocation).mint(
+                recipient,
+                package.identifier
+            );
             require(success, "Mint failed");
         }
-        // ERC1155
-        // if(packages[i].itemType == ItemType.ERC1155){
-            
-        // }
-        // // NONE
-        // if(packages[i].itemType == ItemType.NONE){
-        
-        // }
+
+        // Pull down the customer struct to edit the details
         CustomerStruct storage c = customers[assets[package.token].customer];
-        if(c.setToBill != true){
+        if (c.setToBill != true) {
             c.setToBill = true;
             paymentsDue.push(assets[package.token].customer);
         }
 
+        // Check gas left and add it to the fees of the customer
         gas -= gasleft();
         customers[assets[assetLocation].customer].feesDue += gas;
     }
 
+    /**
+     * @notice Get the encoded customers contracts
+     *
+     * @param invoiceAddress Invoice address to pull asset list from
+     *
+     */
     function getCustomerContractsEncoded(address invoiceAddress)
         public
         view
@@ -219,6 +330,13 @@ contract Coordinator is KeeperCompatibleInterface {
         return abi.encode(customers[invoiceAddress].assetContracts);
     }
 
+    /**
+     * @notice Get the customers contracts
+     *
+     * @param invoiceAddress Invoice address to pull asset list from
+     *
+     * @dev TODO: Cleanup these
+     */
     function getCustomerContracts(address invoiceAddress)
         public
         view
@@ -227,107 +345,144 @@ contract Coordinator is KeeperCompatibleInterface {
         return customers[invoiceAddress].assetContracts;
     }
 
+    /**
+     * @notice Check the eligibility of a customers invoice address
+     *
+     * @param invoiceAddress Invoice address to check
+     *
+     */
     function getEligibility(address invoiceAddress) public view returns (bool) {
         return customers[invoiceAddress].eligible;
     }
 
-    function checkUpkeep(
-        bytes memory /* checkData */
-    )
+    /**
+     * @notice Chainlink functionality for checking upkeep
+     *
+     * @param checkData bytes to check.
+     *
+     */
+    function checkUpkeep(bytes memory checkData)
         public
         view
         override
         returns (bool upkeepNeeded, bytes memory performData)
-    {           
-        // delete paymentsDue;
-        return paymentsDue.length > 0 ?
-            (true, abi.encode(paymentsDue)) :
-            (false, abi.encode(paymentsDue));
+    {
+        // Return data for the perform upkeep function
+        // Encoded paymentdsDue array and a bool whether to check or not.
+        return
+            paymentsDue.length > 0
+                ? (true, abi.encode(paymentsDue))
+                : (false, abi.encode(paymentsDue));
 
-        // If payments due has shit in it, return true and the list in perform data
+        // If payments due has addresses in it, return true and the list in perform data
         // If not we go no billing required
-
-        // Checks if upkeep needs to happen
         // In this instance upkeep is going to be charging customers wallets
-        // Essentially using Chainlink automation to bill our users for their
-        // Transaction costs
     }
 
-    function performUpkeep(
-        bytes memory performData
-    ) external override {
-        // add some verification
-        // (bool upkeepNeeded, ) = checkUpkeep("");
-        // require(upkeepNeeded, "Not Upkeep");
+    /**
+     * @notice Chainlink functionality for performing upkeep
+     *
+     * @param performData encoded addresses to bill.
+     *
+     * @dev nervous about the cost of this function. Should be okay with 5mil gas
+     */
+    function performUpkeep(bytes memory performData) external override {
+        // Decode customer list
         address[] memory billedCustomers = abi.decode(performData, (address[]));
-        if(keccak256(abi.encode(paymentsDue)) != keccak256(performData)) {
+
+        // Confirm they're equal and no extra customers snuck in between blocks
+        if (keccak256(abi.encode(paymentsDue)) != keccak256(performData)) {
             billedCustomers = paymentsDue;
         }
 
+        // delete the paymentsDue array in this transaction so any following get caught
         delete paymentsDue;
 
-        for(uint256 index = 0; index < billedCustomers.length; index++) {
-            _billCustomer(billedCustomers[index]);    
+        // TODO:
+        // If this function is close to running out of gas, we need to add the remaining
+        // customers to  paymentsDue so we can get them next time
+        // Assuming this is running a lot this should eventually even out.
+        // Bill the customers
+        for (uint256 index = 0; index < billedCustomers.length; index++) {
+            _billCustomer(billedCustomers[index]);
         }
-        
-        // -----------------
-        // Some issue here
-        // So if a customer doesnt pay the bills
-        // Then we still delete them from the payments due
-        // Maybe we can return true of false,
-        // If false we can push the address to a memory array
-        // Come back and set payments due to the leftovers
-        // If they're too high on value then lock em
-
-
-
-
-
-        // get list of customers from the perform data
-        // bill all them or lock their account
-
-        // Transfers eth from the owners payable address to here
-        // This is basically forcing people to pay their bills
-        // pauses maintenance window and deletes balances for addrs billed
     }
 
+    /**
+     * @notice Bills the customers invoice address. Essentially transfers
+     *      funds based on how much they used distributing assets
+     *
+     * @param customer Customer address to bill
+     *
+     */
     function _billCustomer(address customer) internal {
+        // Bill them and confirm
         bool success = ICustomer(customer).bill(customers[customer].feesDue);
-        if(success) {
+
+        if (success) {
+            // Set feesDue to 0 and setToBill to false
             customers[customer].feesDue = 0;
             customers[customer].setToBill = false;
         } else {
+            // If it failed, add them back to the paymentsDue array
             paymentsDue.push(customer);
 
-            // Maybe we add some logic to lock an account if its balance is too in debt
-
+            // TODO: Add some logic to lock an account if its balance is too in debt
         }
     }
 
+    /**
+     * @notice Add the ability to add funds to a customers fees from the Registrar account.
+     *
+     *
+     * @param customer Customer address to bill
+     *
+     * @dev This will need to be looked at and edited later. This is specifically for txs that
+     *      are generated through the SDK but arent the mint or distribute tasks. We'll need to
+     *      come back to this to make sure it cant be manipulated and abused.
+     */
     function addFeesToCustomer(address customer, uint256 amount) external {
+        // TODO: Custom error
         require(msg.sender == REGISTRAR, "Not the registrar calling.");
-        if(customers[customer].setToBill == false){
+
+        if (customers[customer].setToBill == false) {
             customers[customer].setToBill = true;
             paymentsDue.push(customer);
         }
+
         customers[customer].feesDue += amount;
+        emit AddedFeesToCustomer(customer, amount);
     }
 
-    function getEncodedRequiredBills() public view returns(bytes memory) {
+    /**
+     * @notice Helper to get encoded paymentsDue
+     */
+    function getEncodedRequiredBills() public view returns (bytes memory) {
         return abi.encode(paymentsDue);
     }
 
+    /**
+     * @notice Set the owner of the contract for withdraw
+     *
+     *
+     * @param newOwner address of the new owner of the contract
+     *
+     */
     function setOwner(address payable newOwner) public {
         require(msg.sender == OWNER, "Not the owner");
         OWNER = newOwner;
         emit OwnerChange(OWNER);
-
     }
 
+    /**
+     * @notice Withdraw funds from this contract
+     *
+     * @dev this contract should only hold funds from fees collected
+     */
     function withdraw() public {
         emit Withdraw(OWNER, address(this).balance);
         address(OWNER).safeTransferETH(address(this).balance);
-    } 
+    }
 
     receive() external payable {}
 
@@ -335,8 +490,9 @@ contract Coordinator is KeeperCompatibleInterface {
 }
 
 interface IERC20 {
-    function mint(address to, uint256 amount) external returns(bool);
+    function mint(address to, uint256 amount) external returns (bool);
 }
+
 interface IERC721 {
-    function mint(address to, uint256 identifier) external returns(bool);
+    function mint(address to, uint256 identifier) external returns (bool);
 }
