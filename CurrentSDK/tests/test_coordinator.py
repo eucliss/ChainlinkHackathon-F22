@@ -37,6 +37,8 @@ TESTINGUSERNAME = '0xTesting'
 CUSTODIAL = web3.Web3.toChecksumAddress(addresses['CUSTODIAL'])
 CUSTODIALPK = addresses['CUSTODIALPK']
 
+REGISTRATION_GAS_FEE = 146894
+
 
 ItemTypes = {
     'NATIVE': 0,
@@ -186,7 +188,7 @@ def test_get_fees_init(coord):
     killUsers(coord.userStore)
     customer = coord.registerCustomer()['customer']
     res = coord.getCustomerBill(invoiceAddress=customer)
-    assert(res == 0)
+    assert(res == REGISTRATION_GAS_FEE)
 
 def test_assets_to_packages(coord, assets, itemTypes):
     invoiceAddress = coord.registerCustomer()['customer']
@@ -218,10 +220,10 @@ def test_assets_to_packages(coord, assets, itemTypes):
         assert(p['identifier'] == i + 1)
         assert(p['amount'] == 1)
 
-def test_set_approvals_for_packages(coord, recipients, assets, itemTypes):
-    packages, recipients = mintPackagesToCustodial(coord, recipients, assets, itemTypes)
-    success, msg = coord.setApprovalsForPackages(packages)
-    assert(success)
+# def test_set_approvals_for_packages(coord, recipients, assets, itemTypes):
+#     packages, recipients = mintPackagesToCustodial(coord, recipients, assets, itemTypes)
+#     success, msg = coord.setApprovalsForPackages(packages)
+#     assert(success)
 
 
 def test_transfer_packages(coord, recipients, assets, itemTypes):
@@ -282,7 +284,7 @@ def test_get_fees_loaded(coord, assets, itemTypes, recipients):
 
     customer = coord.registerCustomer()['customer']
     res = coord.getCustomerBill(invoiceAddress=customer)
-    assert(res == 0)
+    assert(res == REGISTRATION_GAS_FEE)
 
     usernames = []
     userIds = []
@@ -433,5 +435,32 @@ def test_export_assets(coord, recipients, assets, itemTypes):
     )[0]
     assert(userobj['custodial'] == False)
 
+
+
+def test_adding_fees(coord, assets, itemTypes, recipients):
+    killDB(coord.customerStore)
+    killAssets(coord.assetStore)
+    killUsers(coord.userStore)
+    packages = getPackages(assets)
+
+    customer = coord.registerCustomer()['customer']
+    res = coord.getCustomerBill(invoiceAddress=customer)
+    assert(res == REGISTRATION_GAS_FEE)
+    tx_hash = coord.coord.functions.registerAssets(
+            CONTROLLER,
+            customer,
+            assets,
+            itemTypes
+        ).transact({'from': CONTROLLER})
+    tx_receipt = coord.w3.eth.wait_for_transaction_receipt(tx_hash)
+
+    res = coord.connector.billCustomer(tx_receipt, customer)
+
+    assert(len(res) == 2)
+    assert(res['customer'] == customer)
+    assert(res['amount'] == tx_receipt.cumulativeGasUsed)
+
+    fees = coord.getCustomerBill(invoiceAddress=customer)
+    assert(fees == tx_receipt.cumulativeGasUsed + REGISTRATION_GAS_FEE)
 
 

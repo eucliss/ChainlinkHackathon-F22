@@ -23,12 +23,6 @@ contract CurrentNFT is ERC721 {
     {
         return "TokenURI";
     }
-    
-    function mintNextToken(address to) public virtual {
-        _mint(to, nextTokenId);
-        nextTokenId++;
-    }
-
     function mint(address to, uint256 tokenId) 
         public 
         virtual 
@@ -42,21 +36,5 @@ contract CurrentNFT is ERC721 {
 
     function burn(uint256 tokenId) public virtual {
         _burn(tokenId);
-    }
-
-    function safeMint(address to, uint256 tokenId) 
-        public 
-        virtual 
-        validTokenId(tokenId)
-        {
-        _safeMint(to, tokenId);
-    }
-
-    function safeMint(
-        address to,
-        uint256 tokenId,
-        bytes memory data
-    ) public virtual validTokenId(tokenId) {
-        _safeMint(to, tokenId, data);
     }
 }

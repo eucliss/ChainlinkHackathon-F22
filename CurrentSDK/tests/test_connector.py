@@ -42,6 +42,12 @@ def test_deployContract(connector):
     assert('mint' in game.functions)
     assert(abi != "")
 
+def test_getSigned(connector):
+    abi, bytecode = connector.getAbi("CurrentToken")
+    ct = connector.w3.eth.contract(abi=abi, bytecode=bytecode)
+    res = connector.getSignedDeployTx(ct)
+    print(res)
+
 def test_getCustodialBalance(connector):
     w3 = web3.Web3(web3.HTTPProvider('http://127.0.0.1:8545'))
     _, addr, _, _ = connector.deployContract("CurrentToken")
@@ -55,6 +61,23 @@ def test_getCustodialBalance(connector):
                 100
             ).transact({'from': CUSTODIAL})
     tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+    val = connector.getCustodialBalance(addr, "CurrentToken")
+    assert(val == 100)
+
+def test_add_fees_to_customer(connector):
+    w3 = web3.Web3(web3.HTTPProvider('http://127.0.0.1:8545'))
+    _, addr, _, _ = connector.deployContract("CurrentToken")
+    val = connector.getCustodialBalance(addr, "CurrentToken")
+    assert(val == 0)
+
+    abi, _ = connector.getAbi("CurrentToken")
+    contract = w3.eth.contract(address=addr, abi=abi)
+    tx_hash = contract.functions.mint(
+                CUSTODIAL,
+                100
+            ).transact({'from': CUSTODIAL})
+    tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+
     val = connector.getCustodialBalance(addr, "CurrentToken")
     assert(val == 100)
 

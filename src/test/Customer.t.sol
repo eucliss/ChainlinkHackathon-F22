@@ -5,9 +5,7 @@ pragma solidity ^0.8.14;
 import "./utils/Helpers.sol";
 import {ICustomer, Customer} from "../utils/Customer.sol";
 
-
 contract CustomerTest is Helpers {
-
     Customer public c;
     address payable public coordinatorSpoof = payable(address(0xAAAAA));
 
@@ -46,12 +44,10 @@ contract CustomerTest is Helpers {
 
         vm.prank(coordinatorSpoof);
         bool success = c.bill(1 ether);
-        
+
         assert(success);
         assertEq(address(c).balance, 0);
         assertEq(c.balance(), 0);
         assertEq(coordinatorSpoof.balance, 1 ether);
     }
-
 }
-

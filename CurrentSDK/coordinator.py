@@ -16,12 +16,17 @@ from userStore import UserStore
 load_dotenv()
 
 token = os.getenv('INFURA_KEY')
-addresses = dotenv_values("../.env.addresses")
+STAGE = os.getenv('STAGE')
+addresses = ''
+if STAGE == 'dev':
+    PROVIDER = os.getenv('LOCAL_RPC')
+    addresses = addresses = dotenv_values("../.env.addresses")
+if STAGE == 'goerli':
+    PROVIDER = os.getenv('GOERLI_RPC_URL')
+    addresses = dotenv_values("../.env.goerli.addresses")
 
 COORDABI = "../out/Coordinator.sol/Coordinator.json"
 COORDADDRESS = web3.Web3.toChecksumAddress(addresses['COORDINATORADDRESS'])
-BASINADDRESS = web3.Web3.toChecksumAddress(addresses['BASINADDRESS'])
-
 
 REGISTRAR = web3.Web3.toChecksumAddress(addresses['REGISTRAR'])
 REGISTRARPK = addresses['REGISTRARPK']
@@ -56,7 +61,6 @@ class Coordinator():
             connector = Connector(COORDADDRESS)
         self.connector = connector
         self.coord = connector.contract
-        self.basin = connector.basin
         self.w3 = connector.w3
         self.customerStore = CustomerStore(database=database, collection=customerCollection)
         self.assetStore = AssetStore(database=database, collection=assetCollection)
@@ -100,9 +104,14 @@ class Coordinator():
         """
         # Create a new customer invoice address on the contract, send 0.1 ether
         value = self.w3.toWei(Decimal(0.1), 'ether')
-        tx_hash = self.coord.functions.registerCustomer(
+        # tx_hash = self.coord.functions.registerCustomer(
+        #     CONTROLLER
+        # ).transact({'from': REGISTRAR, 'value': value})
+        tx_hash = self.connector.signRegisterCustomer(
+            self.coord,
+            value,
             CONTROLLER
-        ).transact({'from': REGISTRAR, 'value': value})
+        )
         tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
         # Log the data in the mongoDB
@@ -111,6 +120,9 @@ class Coordinator():
         # Return the parsed event object from the contract
         event = self.coord.events.CustomerRegistered().processReceipt(tx_receipt)
         event = event[0]['args']
+
+        # TODO: Keep this??
+        self.connector.billCustomer(tx_receipt, tx_receipt.logs[0].address)
         return event
 
     def translateUserAssetsToPackages(self, assets):
@@ -185,49 +197,49 @@ class Coordinator():
         return packages
     
 
-    def setApprovalsForPackages(self, packages):
-        """
-        $$ TOKEN INTERACTIONS $$
+    # def setApprovalsForPackages(self, packages):
+    #     """
+    #     $$ TOKEN INTERACTIONS $$
 
-        [packages]
-        [
-            {   'itemType': 1, 
-                'token': '0xC0939333007bD49D9f454dc81B4429740A74E475', 
-                'identifier': 0, 
-                'amount': 10
-            } ... 
-        ]
+    #     [packages]
+    #     [
+    #         {   'itemType': 1, 
+    #             'token': '0xC0939333007bD49D9f454dc81B4429740A74E475', 
+    #             'identifier': 0, 
+    #             'amount': 10
+    #         } ... 
+    #     ]
 
-        """
-        for item in packages:
-            try:
-                ct = self.connector.getAssetContract(item['token'], item['itemType'])
-                if item['itemType'] == ItemTypes['ERC20']:
-                    tx_hash = ct.functions.approve(
-                        BASINADDRESS,
-                        item['amount']
-                    ).transact({'from': CUSTODIAL})
-                    tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
-                    # Parse the event object for the return later
-                    event = ct.events.Approval().processReceipt(tx_receipt)
-                    event = event[0]['args']
-                    assert(event['owner'] == CUSTODIAL)
-                    assert(event['amount'] == item['amount'])
+    #     """
+    #     for item in packages:
+    #         try:
+    #             ct = self.connector.getAssetContract(item['token'], item['itemType'])
+    #             if item['itemType'] == ItemTypes['ERC20']:
+    #                 tx_hash = ct.functions.approve(
+    #                     BASINADDRESS,
+    #                     item['amount']
+    #                 ).transact({'from': CUSTODIAL})
+    #                 tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+    #                 # Parse the event object for the return later
+    #                 event = ct.events.Approval().processReceipt(tx_receipt)
+    #                 event = event[0]['args']
+    #                 assert(event['owner'] == CUSTODIAL)
+    #                 assert(event['amount'] == item['amount'])
 
-                if item['itemType'] == ItemTypes['ERC721']:
-                    tx_hash = ct.functions.approve(
-                        BASINADDRESS,
-                        item['identifier']
-                    ).transact({'from': CUSTODIAL})
-                    tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
-                    # Parse the event object for the return later
-                    event = ct.events.Approval().processReceipt(tx_receipt)
-                    event = event[0]['args']
-                    assert(event['owner'] == CUSTODIAL)
-                    assert(event['id'] == item['identifier'])
-            except:
-                return False, f'Item failed to be approved: {item}'
-        return True, 'All Items were approved'
+    #             if item['itemType'] == ItemTypes['ERC721']:
+    #                 tx_hash = ct.functions.approve(
+    #                     BASINADDRESS,
+    #                     item['identifier']
+    #                 ).transact({'from': CUSTODIAL})
+    #                 tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+    #                 # Parse the event object for the return later
+    #                 event = ct.events.Approval().processReceipt(tx_receipt)
+    #                 event = event[0]['args']
+    #                 assert(event['owner'] == CUSTODIAL)
+    #                 assert(event['id'] == item['identifier'])
+    #         except:
+    #             return False, f'Item failed to be approved: {item}'
+    #     return True, 'All Items were approved'
 
     def transferPackagesToRecipients(self, packages, recipients):
         for i in range(0, len(packages)):
@@ -236,10 +248,13 @@ class Coordinator():
             try:
                 ct = self.connector.getAssetContract(item['token'], item['itemType'])
                 if item['itemType'] == ItemTypes['ERC20']:
-                    tx_hash = ct.functions.transfer(
-                        recipient,
-                        item['amount']
-                    ).transact({'from': CUSTODIAL})
+                    
+                    # tx_hash = ct.functions.transfer(
+                    #     recipient,
+                    #     item['amount']
+                    # ).transact({'from': CUSTODIAL})
+                    tx_hash = self.connector.transferERC20(ct, recipient, item['amount'])
+
                     tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
                     # Parse the event object for the return later
                     event = ct.events.Transfer().processReceipt(tx_receipt)
@@ -248,12 +263,17 @@ class Coordinator():
                     assert(event['amount'] == item['amount'])
                     assert(event['to'] == recipient)
 
+                    # TODO:
+                    # self.connector.billCustomer(tx_receipt, tx_receipt.logs[0].address)
+
                 if item['itemType'] == ItemTypes['ERC721']:
-                    tx_hash = ct.functions.transferFrom(
-                        CUSTODIAL,
-                        recipient,
-                        item['identifier']
-                    ).transact({'from': CUSTODIAL})
+                    # tx_hash = ct.functions.transferFrom(
+                    #     CUSTODIAL,
+                    #     recipient,
+                    #     item['identifier']
+                    # ).transact({'from': CUSTODIAL})
+                    tx_hash = self.connector.transferERC721(ct, recipient, item['identifier'])
+
                     tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
                     # Parse the event object for the return later
                     event = ct.events.Transfer().processReceipt(tx_receipt)
@@ -261,6 +281,9 @@ class Coordinator():
                     assert(event['from'] == CUSTODIAL)
                     assert(event['id'] == item['identifier'])
                     assert(event['to'] == recipient)
+
+                    # TODO:
+                    # self.connector.billCustomer(tx_receipt, tx_receipt.logs[0].address)
             except:
                 return False, f'Item failed to be transfered: {item}'
         return True, 'All Items were transfered'
@@ -279,7 +302,6 @@ class Coordinator():
             userObject = userObject[0]
             if userObject['address'] == CUSTODIAL:
                 return False, 0, "User has custodial address set, please set"
-
             packages = self.translateUserAssetsToPackages(userObject['assets'])
             recipients = [web3.Web3.toChecksumAddress(userObject['address']) for i in packages]
             success, _ = self.transferPackagesToRecipients(packages, recipients)
@@ -329,13 +351,22 @@ class Coordinator():
 
         # Register those assets on chain for the customer
         # Asset controller is the CONTROLLER address
-        tx_hash = self.coord.functions.registerAssets(
-            CONTROLLER,
+        # tx_hash = self.coord.functions.registerAssets(
+        #     CONTROLLER,
+        #     customerInvoice,
+        #     assetAddresses,
+        #     assetItemTypes
+        # ).transact({'from': CONTROLLER})
+        tx_hash = self.connector.registerAssets(
+            self.coord,
             customerInvoice,
             assetAddresses,
-            assetItemTypes
-        ).transact({'from': CONTROLLER})
+            assetItemTypes,
+        )
         tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+        
+        # self.connector.billCustomer(tx_receipt, customerInvoice)
+
 
         # Parse the event object for the return later
         event = self.coord.events.AddedAssetsToCustomer().processReceipt(tx_receipt)
@@ -411,15 +442,26 @@ class Coordinator():
             assetIdentifiers.append(recs[0]['assetIdentifier'])
 
         # Contract call: Mint the assets to the users
-        tx_hash = self.coord.functions.mintAssets(
+        # tx_hash = self.coord.functions.mintAssets(
+        #     packages,
+        #     userAddresses
+        # ).transact({'from': CONTROLLER})
+        print("minting assets")
+        tx_hash = self.connector.mintAssets(
+            self.coord,
             packages,
             userAddresses
-        ).transact({'from': CONTROLLER})
+        )
         tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+        
+        # TODO:
+        #self.connector.billCustomer(tx_receipt, customerInvoice)
 
         # Parse the event back for confirmation
         event = self.coord.events.MintedAssets().processReceipt(tx_receipt)
         event = event[0]['args']
+        print("MINTED")
+        print(event)
 
         # Log user updates into the DB now
         for i  in range(0, len(packages)):
@@ -447,11 +489,17 @@ class Coordinator():
         """
         # Register a new customer with the assets
         value = self.w3.toWei(Decimal(0.1), 'ether')
-        tx_hash = self.coord.functions.registerWithAssets(
-            CONTROLLER,
+        # tx_hash = self.coord.functions.registerWithAssets(
+        #     CONTROLLER,
+        #     assetAddresses,
+        #     assetItemTypes
+        # ).transact({'from': CONTROLLER, 'value': value})
+        tx_hash = self.connector.registerAssets(
+            self.coord,
             assetAddresses,
-            assetItemTypes
-        ).transact({'from': CONTROLLER, 'value': value})
+            assetItemTypes,
+            value
+        )
         tx_receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
         # Parse the event for details

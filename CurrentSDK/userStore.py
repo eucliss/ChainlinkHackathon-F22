@@ -10,9 +10,16 @@ from assetStore import AssetStore
 
 from decimal import Decimal
 
-load_dotenv()
+token = os.getenv('INFURA_KEY')
+STAGE = os.getenv('STAGE')
+addresses = ''
+if STAGE == 'dev':
+    PROVIDER = os.getenv('LOCAL_RPC')
+    addresses = addresses = dotenv_values("../.env.addresses")
+if STAGE == 'goerli':
+    PROVIDER = os.getenv('GOERLI_RPC_URL')
+    addresses = dotenv_values("../.env.goerli.addresses")
 
-addresses = dotenv_values("../.env.addresses")
 
 CUSTODIAL = web3.Web3.toChecksumAddress(addresses['CUSTODIAL'])
 CUSTODIALPK = addresses['CUSTODIALPK']

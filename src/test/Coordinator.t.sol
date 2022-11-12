@@ -3,8 +3,8 @@
 pragma solidity ^0.8.14;
 
 import "./utils/Helpers.sol";
-contract CoordinatorTest is Helpers {
 
+contract CoordinatorTest is Helpers {
     function setUp() public {
         tokenContract = new CurrentToken();
         skinsContract = new CurrentNFT();
@@ -36,11 +36,13 @@ contract CoordinatorTest is Helpers {
 
         vm.deal(bob, initEth + 0.1 ether);
         vm.prank(bob);
-        invoiceAddress = payable(coord.registerWithAssets{value: 0.1 ether}(
-            bob,
-            assetContracts,
-            assetItemTypes
-        ));
+        invoiceAddress = payable(
+            coord.registerWithAssets{value: 0.1 ether}(
+                bob,
+                assetContracts,
+                assetItemTypes
+            )
+        );
     }
 
     function testConstructor() public {
@@ -58,9 +60,7 @@ contract CoordinatorTest is Helpers {
         assertEq(bob.balance, initEth - 0.1 ether);
         assertEq(customer.balance, 0.1 ether);
 
-        (uint256 fees, , bool eligible, ) = coord.customers(
-            customer
-        );
+        (uint256 fees, , bool eligible, ) = coord.customers(customer);
 
         assertEq(fees, 0);
         assertTrue(eligible);
@@ -80,34 +80,27 @@ contract CoordinatorTest is Helpers {
     function testSetOwner() public {
         coord = new Coordinator(REGISTRAR);
         vm.prank(bob);
-        vm.expectRevert(
-            "Not the owner"
-        );
+        vm.expectRevert("Not the owner");
         coord.setOwner(bob);
         assertEq(coord.OWNER(), REGISTRAR);
 
         vm.prank(REGISTRAR);
         coord.setOwner(bob);
         assertEq(coord.OWNER(), bob);
-        
     }
 
     function testAddFeesToCustomer() public {
         coord = new Coordinator(REGISTRAR);
         vm.prank(bob);
         address customer = coord.registerCustomer{value: 0.1 ether}(bob);
-        (uint256 fees, , bool eligible, ) = coord.customers(
-            customer
-        );
+        (uint256 fees, , bool eligible, ) = coord.customers(customer);
         assertEq(fees, 0);
         assertTrue(eligible);
 
         vm.prank(REGISTRAR);
         coord.addFeesToCustomer(customer, 1 ether);
         bool bill;
-        (fees, ,eligible, bill) = coord.customers(
-            customer
-        );
+        (fees, , eligible, bill) = coord.customers(customer);
         assertEq(fees, 1 ether);
         assertTrue(bill);
 
@@ -123,15 +116,10 @@ contract CoordinatorTest is Helpers {
         coord = new Coordinator(REGISTRAR);
         vm.startPrank(bob);
         address customer = coord.registerCustomer{value: 0.1 ether}(bob);
-        coord.registerAssets(
-            bob,
-            customer,
-            assetContracts,
-            assetItemTypes
-        );
+        coord.registerAssets(bob, customer, assetContracts, assetItemTypes);
 
         // Assert assets are loaded into the customer object
-        address[] memory contracts = coord.getCustomerContracts(bob);   
+        address[] memory contracts = coord.getCustomerContracts(bob);
         assertEq(assetContracts, assetContracts);
 
         address resCustomer;
@@ -140,33 +128,27 @@ contract CoordinatorTest is Helpers {
         bool resEligible;
 
         // Test for assets indexed in the asset contracts
-        for(uint256 i = 0; i < assetContracts.length; i++){
-            (
-                resCustomer,
-                resExecutor,
-                resType,
-                resEligible
-            ) = coord.assets(assetContracts[i]);
+        for (uint256 i = 0; i < assetContracts.length; i++) {
+            (resCustomer, resExecutor, resType, resEligible) = coord.assets(
+                assetContracts[i]
+            );
 
             assertEq(resCustomer, customer);
             assertEq(resExecutor, bob);
             require(resType == assetItemTypes[i]);
             assertTrue(resEligible);
         }
-
     }
 
     function testRegisterGameStorage() public {
-        (, , bool eligible, ) = coord.customers(
-            invoiceAddress
-        );
+        (, , bool eligible, ) = coord.customers(invoiceAddress);
 
         assertTrue(eligible, "Not eligible");
         address p;
         address e;
         bool elig;
-        for(uint256 i = 0; i < assetContracts.length; i++){
-            (p, e, ,elig) = coord.assets(assetContracts[i]);
+        for (uint256 i = 0; i < assetContracts.length; i++) {
+            (p, e, , elig) = coord.assets(assetContracts[i]);
             assertEq(p, invoiceAddress, "Invoice Addresses are not equal");
             assertEq(e, bob, "Asset controllers are not equal");
             assertTrue(elig, "Asset contract not set to eligible");
@@ -174,7 +156,7 @@ contract CoordinatorTest is Helpers {
     }
 
     function testGetCustomerContracts() public {
-        address[] memory contracts = coord.getCustomerContracts(invoiceAddress);   
+        address[] memory contracts = coord.getCustomerContracts(invoiceAddress);
         assertEq(assetContracts, contracts);
     }
 
@@ -208,11 +190,7 @@ contract CoordinatorTest is Helpers {
         assertEq(fees, 0);
 
         vm.prank(bob);
-        coord.mintAssets(
-            packages,
-            recipients
-        );
-
+        coord.mintAssets(packages, recipients);
 
         custBalance = tokenContract.balanceOf(CUSTODIAL);
         noncustBalance = tokenContract.balanceOf(NONCUSTODIAL);
@@ -223,7 +201,7 @@ contract CoordinatorTest is Helpers {
         noncustNFTBalance = skinsContract.balanceOf(NONCUSTODIAL);
         assertEq(custNFTBalance, 0);
         assertEq(noncustNFTBalance, 1);
-        
+
         bool bill;
         (fees, , , bill) = coord.customers(invoiceAddress);
         assert(fees > 0);
@@ -249,16 +227,9 @@ contract CoordinatorTest is Helpers {
         assertEq(fees, 0);
 
         vm.prank(bob);
-        coord.mintAssets(
-            packages,
-            recipients
-        );
+        coord.mintAssets(packages, recipients);
         vm.prank(assetController);
-        coord.mintAssets(
-            packages2,
-            recipients2
-        );
-
+        coord.mintAssets(packages2, recipients2);
 
         custBalance = tokenContract.balanceOf(CUSTODIAL);
         noncustBalance = tokenContract.balanceOf(NONCUSTODIAL);
@@ -269,7 +240,7 @@ contract CoordinatorTest is Helpers {
         noncustNFTBalance = skinsContract.balanceOf(NONCUSTODIAL);
         assertEq(custNFTBalance, 0);
         assertEq(noncustNFTBalance, 1);
-        
+
         bool bill;
         (fees, , , bill) = coord.customers(invoiceAddress);
         assert(fees > 0);
@@ -282,10 +253,7 @@ contract CoordinatorTest is Helpers {
 
     function testUpkeep() public {
         vm.prank(bob);
-        coord.mintAssets(
-            packages,
-            recipients
-        );
+        coord.mintAssets(packages, recipients);
 
         bytes memory billsBytes = coord.getEncodedRequiredBills();
 
@@ -301,20 +269,13 @@ contract CoordinatorTest is Helpers {
         assertEq(resCustomers[0], invoiceAddress);
     }
 
-
     function testMultipleInvoiceUpkeep() public {
         setUpMultiInvoiceAndRegister();
-        
+
         vm.prank(bob);
-        coord.mintAssets(
-            packages,
-            recipients
-        );
+        coord.mintAssets(packages, recipients);
         vm.prank(assetController);
-        coord.mintAssets(
-            packages2,
-            recipients2
-        );
+        coord.mintAssets(packages2, recipients2);
 
         bytes memory billsBytes = coord.getEncodedRequiredBills();
 
@@ -333,20 +294,14 @@ contract CoordinatorTest is Helpers {
 
     function testPerformUpkeepLag() public {
         setUpMultiInvoiceAndRegister();
-        
+
         vm.prank(bob);
-        coord.mintAssets(
-            packages,
-            recipients
-        );
+        coord.mintAssets(packages, recipients);
 
         (bool upkeepRequired, bytes memory data) = coord.checkUpkeep("");
 
         vm.prank(assetController);
-        coord.mintAssets(
-            packages2,
-            recipients2
-        );
+        coord.mintAssets(packages2, recipients2);
 
         (uint256 fees, , , bool bill) = coord.customers(invoiceAddress);
         (uint256 fees2, , , bool bill2) = coord.customers(invoiceAddress2);
@@ -382,12 +337,9 @@ contract CoordinatorTest is Helpers {
 
     function testPerformUpkeep() public {
         vm.deal(invoiceAddress, 1 ether);
-        
+
         vm.prank(bob);
-        coord.mintAssets(
-            packages,
-            recipients
-        );
+        coord.mintAssets(packages, recipients);
 
         bytes memory billsBytes = coord.getEncodedRequiredBills();
         address[] memory billsRequired = abi.decode(billsBytes, (address[]));
@@ -398,7 +350,7 @@ contract CoordinatorTest is Helpers {
         (uint256 fees, , , bool bill) = coord.customers(invoiceAddress);
         assert(fees > 0);
         assert(bill);
-        
+
         // Perform the upkeep
         coord.performUpkeep(billsBytes);
 
@@ -418,17 +370,13 @@ contract CoordinatorTest is Helpers {
         assertEq(billsRequired.length, 0);
     }
 
-
     // Failure to pay bills case
 
     function testBill() public {
         setUpExposed();
         vm.deal(invoiceAddress, 1 ether);
         vm.prank(bob);
-        exCoord.mintAssets(
-            packages,
-            recipients
-        );
+        exCoord.mintAssets(packages, recipients);
 
         (uint256 fees, , , bool bill) = exCoord.customers(invoiceAddress);
         assert(fees > 0);
@@ -442,4 +390,3 @@ contract CoordinatorTest is Helpers {
         assert(!bill);
     }
 }
-
