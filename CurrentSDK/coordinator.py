@@ -305,7 +305,6 @@ class Coordinator():
             packages = self.translateUserAssetsToPackages(userObject['assets'])
             recipients = [web3.Web3.toChecksumAddress(userObject['address']) for i in packages]
             success, _ = self.transferPackagesToRecipients(packages, recipients)
-            assert(success)
         except:
             return False, {}, 'Failed to transfer Assets'
 

@@ -164,7 +164,8 @@ class UserStore():
         }
 
         self.client.storeRecord(obj, self.databaseName, self.collectionName)
-        self.nextUserIdentifier += 1
+        self.nextUserIdentifier = self.nextUserIdentifier + 1
+        print(f'Next user will be {self.nextUserIdentifier}')
 
         return f'{self.userIDPrefix}{self.nextUserIdentifier - 1}', True, "Successfully stored new user."
     

@@ -7,16 +7,24 @@
 
   ### By Eucliss 
 
-[![Twitter URL](https://img.shields.io/twitter/url/https/twitter.com/Current_GameFi.svg?style=social&label=Follow%20%40Current_GameFi)](https://twitter.com/Current_GameFi)
 
-[![Foundry][foundry-badge]][foundry]
+[![Coordinator][Coordinator-badge]][Coordinator]  [![Discord][Discord-badge]][Discord] [![Twitter URL](https://img.shields.io/twitter/url/https/twitter.com/Current_GameFi.svg?style=social&label=Follow%20%40Current_GameFi)](https://twitter.com/Current_GameFi)    [![Foundry][foundry-badge]][foundry]
 
 [foundry]: https://getfoundry.sh/
-[foundry-badge]: https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg
+[foundry-badge]: https://img.shields.io/badge/Built%20with-Foundry-4790E1.svg
+[Coordinator]: https://goerli.etherscan.io/address/0xbbdc84e6d84c9f142b7e04c8c727c008da42ab63
+[Coordinator-badge]: https://img.shields.io/badge/Goerli-Coordinator%20Contract-4790E1.svg
+
+[Discord]: https://discord.gg/szwDs6BQhJ
+[Discord-badge]: https://img.shields.io/badge/Current%20Discord-Link-BCABE4.svg
 
 ## Description
 
 The goal of the Current project is to bridge the gap between Web2 games and Web3. Our vision is to have open access to web3 for users and developers regardless of their comfort level with web3. We aim to be a hybrid-custodial software solution for developing and using web3 without any of the hassle of onboarding. For the purposes of the Chainlink Hackathon, we built an end-to-end demo of how a user, customer, and developer would utilize Current to build a game that rewarded the user with blockchain assets - No wallets, transactions, or signatures required.
+
+For the purposes of this demo and Hackathon we've only deployed to Goerli - we have discussed deploying to other side chains and L2s in the future for their obvious benefits. We discuss what the future holds further down in this document.
+
+[![Current Youtube Video](https://img.youtube.com/vi/5jNmST-FiP8/0.jpg)](https://www.youtube.com/watch?v=5jNmST-FiP8)
 
 ## High level overview
 
@@ -201,7 +209,7 @@ P.S. to test the bot, run `!ping`.
   The init function is designed to start the entire process and register the primary customer (us). The command initialized the CONFIG to a state of initialized and also deploys assets to the chain. For our game we have 2 assets: CurrentToken and CurrentNFT. These are simple ERC20 and ERC721 contracts that allow us to mint tokens to the users. For the purposes of this demo we're internalizing everything. In the future we will allow anyone to create a customer in our system and get billed for their usage.
 
 
-2. !checkChain
+2. !custodialBalance
   This command checks the chain to determine how many assets the custodial address has.
 
 3. !getBill
