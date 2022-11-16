@@ -18,13 +18,19 @@
 [Discord]: https://discord.gg/szwDs6BQhJ
 [Discord-badge]: https://img.shields.io/badge/Current%20Discord-Link-BCABE4.svg
 
+## Video Walkthrough
+
+<p align="center">
+   <a target="_blank" href="https://www.youtube.com/watch?v=5jNmST-FiP8">
+    <img src="./img/Video.png"/>
+   </a>
+</p>
+
 ## Description
 
 The goal of the Current project is to bridge the gap between Web2 games and Web3. Our vision is to have open access to web3 for users and developers regardless of their comfort level with web3. We aim to be a hybrid-custodial software solution for developing and using web3 without any of the hassle of onboarding. For the purposes of the Chainlink Hackathon, we built an end-to-end demo of how a user, customer, and developer would utilize Current to build a game that rewarded the user with blockchain assets - No wallets, transactions, or signatures required.
 
 For the purposes of this demo and Hackathon we've only deployed to Goerli - we have discussed deploying to other side chains and L2s in the future for their obvious benefits. We discuss what the future holds further down in this document.
-
-[![Current Youtube Video](https://img.youtube.com/vi/5jNmST-FiP8/0.jpg)](https://www.youtube.com/watch?v=5jNmST-FiP8)
 
 ## High level overview
 
