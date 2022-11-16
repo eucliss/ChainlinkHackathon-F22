@@ -28,6 +28,11 @@ bot = commands.Bot(command_prefix=commands.when_mentioned_or("!"), description=d
 
 OWNER = "Smig#0682"
 coord = ''
+
+# TODO: Fix this 
+# Hard code this for demo purposes
+NEXTID = 10
+
 STAGE = os.getenv('STAGE')
 if STAGE == 'dev':
     coord = Coordinator(
@@ -35,8 +40,12 @@ if STAGE == 'dev':
     )
 if STAGE == 'goerli':
     coord = Coordinator(
-        database='DiscordGoerli'
+        database='DiscordGoerli-2'
     )
+# if STAGE == 'goerli':
+#     coord = Coordinator(
+#         database='DiscordDemo-3'
+#     )
 
 CONFIG = {
     'state': 'UNINITIALIZED',
@@ -67,84 +76,130 @@ async def on_ready():
 async def ping(ctx):
     await ctx.send('Pong!')
 
-# TODO:
-# Set NFT and TOKEN addresses if we deploy through deploy script
+@bot.command()
+async def restartDeploys(ctx: commands.Context):
+    if str(ctx.author) != OWNER:
+        await ctx.send(f'You dont own me ... ')
+    else:
+        await ctx.send(f'Restarting and redeploying ... ')
+        coord.restart()
+        global CONFIG
+        print("Entered the initialize function, setting state.")
+        if CONFIG['state'] == 'INITIALIZED':
+            await ctx.send(f'ERROR: Already initialized')
+            return
+        
+        print("Registering a new customer")
+        event = coord.registerCustomer()
+        invoiceAddr = event['customer']
+        customerId = 'CUST1'
+        print(f'Registered a new customer: {customerId}, {invoiceAddr}')
+
+        success, erc20, _, _ = coord.connector.deployContract('CurrentToken')
+        if not success:
+            await ctx.send(f'Failed to deploy ERC20 contract')    
+        print(f'Successfully deployed ERC20: {erc20}')
+        success, erc721, _, _ = coord.connector.deployContract('CurrentNFT')
+        if not success:
+            await ctx.send(f'Failed to deploy ERC721 contract')    
+        print(f'Successfully deployed ERC721: {erc721}')
+
+        print('Registering assets')
+        assets = coord.registerAssets(
+            invoiceAddr,
+            [erc20, erc721],
+            [ItemTypes['ERC20'], ItemTypes['ERC721']]
+        )['updatedContracts']
+        print(f'Successfully registered assets: {assets}')
+
+        erc20 = {
+            'address': erc20,
+            'identifier': coord.assetStore.getAssetIdentifier(erc20)
+        }
+
+        erc721 = {
+            'address': erc721,
+            'identifier': coord.assetStore.getAssetIdentifier(erc721)
+        }
+
+        CONFIG = {
+            'state': 'INITIALIZED',
+            'customerId': customerId,
+            'invoiceAddr': invoiceAddr,
+            'assets': assets,
+            'erc20': erc20,
+            'erc721': erc721,
+            'assetTypes': [ItemTypes['ERC20'], ItemTypes['ERC721']],
+            'nftIdentifier': 0
+        }
+        print(f'Config is set: {CONFIG}')
+        await ctx.send(f'Customer ({customerId}) created at {invoiceAddr}')
+        await ctx.send(f'Assets added: {assets}')
 
 @bot.command()
-async def init(ctx: commands.Context):
-    # coord.restart()
-    global CONFIG
-    print("Entered the initialize function, setting state.")
-    if CONFIG['state'] == 'INITIALIZED':
-        await ctx.send(f'ERROR: Already initialized')
-        return
-    
-    print("Registering a new customer")
-    # event = coord.registerCustomer()
-    # invoiceAddr = event['customer'] # 0xB219C67312C6bd1d92084333119b4Acfe9cF66C8
-    invoiceAddr = web3.Web3.toChecksumAddress("0xB219C67312C6bd1d92084333119b4Acfe9cF66C8")
-    customerId = 'CUST1'
-    print(f'Registered a new customer: {customerId}, {invoiceAddr}')
+async def init(ctx: commands.Context, invoiceAddress=None, tokenAddress=None, nftAddress=None):
+    if str(ctx.author) != OWNER:
+        await ctx.send(f'You dont own me ... ')
+    else:
+        if STAGE == 'goerli':
+            invoiceAddress = invoiceAddress if invoiceAddress != None else "0xB219C67312C6bd1d92084333119b4Acfe9cF66C8"
+            tokenAddress = tokenAddress if tokenAddress != None else "0xEeEEe88E68ee2b75D4bD19ba972FCCfce9CBA033"
+            nftAddress = nftAddress if nftAddress != None else "0x6FF94c70335e7231dAc0A6d021CF6DFC88f1D849"
+        await ctx.send(f'Initializing environment {STAGE}, give me a minute ...')
+        global CONFIG
+        print("Entered the initialize function, setting state.")
+        if CONFIG['state'] == 'INITIALIZED':
+            await ctx.send(f'ERROR: Already initialized')
+            return
+        
+        print("Registering a new customer")
+        invoiceAddr = web3.Web3.toChecksumAddress(invoiceAddress)
+        customerId = 'CUST1'
+        print(f'Registered a new customer: {customerId}, {invoiceAddr}')
 
-    # 0xeFa6168c8F63E5D1c44c49AE63423A151067Ddb6
-    success, erc20, _, _ = coord.connector.deployContract('CurrentToken')
-    # erc20 = web3.Web3.toChecksumAddress("0xeFa6168c8F63E5D1c44c49AE63423A151067Ddb6")
-    # if not success:
-        # await ctx.send(f'Failed to deploy ERC20 contract')    
-    print(f'Successfully deployed ERC20: {erc20}')
-    success, erc721, _, _ = coord.connector.deployContract('CurrentNFT')
-    # 0x9996B76adF5df73f79510BF9C2ecD2da1cE01f8f
-    # erc721 = web3.Web3.toChecksumAddress("0x236c18F34f5D896c78874DED429D9cDdec75Ef4a")
-    # if not success:
-    #     await ctx.send(f'Failed to deploy ERC721 contract')    
-    print(f'Successfully deployed ERC721: {erc721}')
+        erc20 = web3.Web3.toChecksumAddress(tokenAddress)
+        print(f'Successfully deployed ERC20: {erc20}')
+        erc721 = web3.Web3.toChecksumAddress(nftAddress)
+        print(f'Successfully deployed ERC721: {erc721}')
 
-    print('Registering assets')
-    assets = coord.registerAssets(
-        invoiceAddr,
-        [erc20, erc721],
-        [ItemTypes['ERC20'], ItemTypes['ERC721']]
-    )['updatedContracts']
-    print(f'Successfully registered assets: {assets}')
+        print('Registering assets')
+        try:
+            res = coord.assetStore.addAssets(
+                'CUST1', 
+                [erc20, erc721],
+                [ItemTypes['ERC20'], ItemTypes['ERC721']]
+            )
+            print(f'Found assets {res}')
+        except:
+            print("Assets already registered")
+            print(f'ERC20: {coord.assetStore.getAssetIdentifier(erc20)}')
+            print(f'ERC721: {coord.assetStore.getAssetIdentifier(erc721)}')
 
-    # res = coord.assetStore.addAssets(
-    #     'CUST1', 
-    #     [erc20, erc721],
-    #     [ItemTypes['ERC20'], ItemTypes['ERC721']]
-    # )
-    # res = coord.assetStore.addAssets(
-    #     'CUST1', 
-    #     [erc721],
-    #     [ItemTypes['ERC721']]
-    # )
-    # print(res)
+        erc20 = {
+            'address': erc20,
+            'identifier': coord.assetStore.getAssetIdentifier(erc20)
+        }
 
-    erc20 = {
-        'address': erc20,
-        'identifier': coord.assetStore.getAssetIdentifier(erc20)
-    }
+        erc721 = {
+            'address': erc721,
+            'identifier': coord.assetStore.getAssetIdentifier(erc721)
+        }
 
-    erc721 = {
-        'address': erc721,
-        'identifier': coord.assetStore.getAssetIdentifier(erc721)
-    }
+        assets = [erc20, erc721]
 
-    assets = [erc20, erc721]
-
-
-    CONFIG = {
-        'state': 'INITIALIZED',
-        'customerId': customerId,
-        'invoiceAddr': invoiceAddr,
-        'assets': assets,
-        'erc20': erc20,
-        'erc721': erc721,
-        'assetTypes': [ItemTypes['ERC20'], ItemTypes['ERC721']],
-        'nftIdentifier': 0
-    }
-    print(f'Config is set: {CONFIG}')
-    await ctx.send(f'Customer ({customerId}) created at {invoiceAddr}')
-    await ctx.send(f'Assets added: {assets}')
+        CONFIG = {
+            'state': 'INITIALIZED',
+            'customerId': customerId,
+            'invoiceAddr': invoiceAddr,
+            'assets': assets,
+            'erc20': erc20,
+            'erc721': erc721,
+            'assetTypes': [ItemTypes['ERC20'], ItemTypes['ERC721']],
+            'nftIdentifier': NEXTID
+        }
+        print(f'Config is set: {CONFIG}')
+        await ctx.send(f'Customer ({customerId}) created at {invoiceAddr}')
+        await ctx.send(f'Assets added: {assets}')
 
 @bot.command()
 async def register(ctx: commands.Context):
@@ -182,6 +237,7 @@ async def balance(ctx: commands.Context):
         'ASS1': 'Token',
         'ASS2': 'NFT'
     }
+    await ctx.send(f'Checking the database to see what assets you own ...')
     try:
         for asset in assets:
             await ctx.send(f'{assetMap[asset]} balance: {assets[asset]["amount"]}')
@@ -189,7 +245,7 @@ async def balance(ctx: commands.Context):
         await ctx.send(f'You have no assets')
 
 @bot.command()
-async def checkChain(ctx: commands.Context):
+async def custodialBalance(ctx: commands.Context):
     print(f'Getting custodial balances')
     tokenAmount = coord.connector.getCustodialBalance(CONFIG['erc20']['address'], "CurrentToken")
     nftAmount = coord.connector.getCustodialBalance(CONFIG['erc721']['address'], "CurrentNFT")
@@ -222,6 +278,7 @@ async def getUserObject(ctx: commands.Context):
 @bot.command()
 async def export(ctx: commands.Context):
     print(f'Exporting User Assets')
+    await ctx.send(f'Exporting assets ...')
     success, _, msg = coord.exportAssets(str(ctx.author))
     if success:    
         await ctx.send(f'Successfully exported user assets')
@@ -257,12 +314,15 @@ async def chainBalance(ctx: commands.Context):
 async def roll(ctx: commands.Context):
     print(f'Rolling the dice ... ')
     num = random.random() * 10000
-    num = num % 6
+    num = num % 11
     print(f'Got number: {num}')
     userId = coord.userStore.getUserId(str(ctx.author))
     print(f'Got UserId: {userId}')
-    if 0 <= num <= 2:
-        print('Number in between 0-2, giving 100 ERC20')
+    if str(ctx.author) == OWNER:
+        num = 11
+    if 0 <= num <= 4:
+        print('Number in between 0-4, giving 100 ERC20')
+        await ctx.send(f'You\'ve won 100 Tokens with a dice roll of {"{:.0f}".format(num + 1)}!!')
         event = coord.mintAssets(
             [{
                 'itemType': ItemTypes['ERC20'],
@@ -273,10 +333,10 @@ async def roll(ctx: commands.Context):
             [str(ctx.author)]
         )
         print(f'Added assets to user: 100  tokens')
-        await ctx.send(f'You\'ve won 100 Tokens!!')
 
-    if 2 < num <= 4:
-        print('Number in between 3-4, giving 1000 ERC20')
+    if 4 < num <= 8:
+        await ctx.send(f'You\'ve won 1000 Tokens with a dice roll of {"{:.0f}".format(num + 1)}!!')
+        print('Number in between 4-8, giving 1000 ERC20')
         event = coord.mintAssets(
             [{
                 'itemType': ItemTypes['ERC20'],
@@ -287,9 +347,10 @@ async def roll(ctx: commands.Context):
             [str(ctx.author)]
         )
         print(f'Added assets to user: 1000  tokens')
-        await ctx.send(f'You\'ve won 1000 Tokens!!')
-    if 4 < num <= 6:
-        print('Number equal to 5, giving 1000 ERC20 and 1 ERC721')
+    if 8 < num <= 12:
+        nftId = CONFIG['nftIdentifier']
+        await ctx.send(f'You\'ve won 1000 Tokens and NFT #{nftId} with a dice roll of {"{:.0f}".format(num + 1)}!!')
+        print('Number above 8, giving 1000 ERC20 and 1 ERC721')
         event = coord.mintAssets(
             [{
                 'itemType': ItemTypes['ERC20'],
@@ -300,6 +361,7 @@ async def roll(ctx: commands.Context):
             [str(ctx.author)]
         )
         print(f'Added assets to user: 1000  tokens')
+        print(f'Adding NFT To user: {nftId}')
         event = coord.mintAssets(
             [{
                 'itemType': ItemTypes['ERC721'],
@@ -324,11 +386,8 @@ async def roll(ctx: commands.Context):
         #     }],
         #     [str(ctx.author), str(ctx.author)]
         # )
-        nftId = CONFIG['nftIdentifier']
         CONFIG['nftIdentifier'] = CONFIG['nftIdentifier'] + 1
         print(f'Added assets to user: NFT{nftId}')
-        await ctx.send(f'You\'ve won 1000 Tokens and NFT #{nftId}!!')
-    print(event)
     userAssets = coord.userStore.getUserAssets(str(ctx.author))
     print(f'Users updated assets: {userAssets}')
 

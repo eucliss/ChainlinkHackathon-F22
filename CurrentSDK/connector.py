@@ -144,7 +144,7 @@ class Connector():
     
     def transferERC721(self, ct, recipient, identifier):
         nonce = self.w3.eth.get_transaction_count(CUSTODIAL)
-        txn = ct.functions.transfer(
+        txn = ct.functions.transferFrom(
             CUSTODIAL,
             recipient,
             identifier
@@ -180,7 +180,7 @@ class Connector():
         return tx_hash
     
     def mintAssets(self, coord, packages, addresses):
-        nonce = self.w3.eth.get_transaction_count(CONTROLLER)
+        nonce = self.w3.eth.get_transaction_count(CONTROLLER, 'pending')
         txn = coord.functions.mintAssets(
             packages,
             addresses
@@ -197,7 +197,7 @@ class Connector():
         return tx_hash
     
     def registerWithAssets(self, coord, assetAddresses, assetItemTypes, value):
-        nonce = self.w3.eth.get_transaction_count(CONTROLLER)
+        nonce = self.w3.eth.get_transaction_count(CONTROLLER, 'pending')
         txn = coord.functions.registerWithAssets(
             CONTROLLER,
             assetAddresses,
